@@ -129,7 +129,7 @@ archiválás nincs; a soft delete kizárólag API-ból érhető el, szándékos 
 | `GET /api/health` | `{ok, web}`. **A frontend meglétét is nézi** — a Docker build fázisa csendben elhasalhat úgy, hogy a szerver elindul, de csak 404-et ad |
 | `GET /api/markers?from&to` | A `[from, to)` markerei **plusz a carry-in** — lásd lent |
 | `POST /api/markers` | `{at, activityId, note?}` → a létrehozott sor |
-| `PATCH /api/markers/:id` | Részleges módosítás → a mentett sor |
+| `PATCH /api/markers/:id` | Részleges módosítás → a mentett sor. **409, ha az új idő keresztezné a szomszédokat** |
 | `DELETE /api/markers/:id` | Valódi törlés (204) |
 | `GET /api/activities` | Az összes típus, az archiváltakkal együtt |
 | `PUT /api/activities/:id` | **Meglévő** módosítása (404, ha nincs) |
@@ -138,6 +138,21 @@ archiválás nincs; a soft delete kizárólag API-ból érhető el, szándékos 
 
 Az ismeretlen `/api/*` útvonal **JSON 404-et** ad, nem esik át az SPA-fallbackre — különben
 `index.html` jönne 200-zal, ami a kliensen JSON-parse hibaként jelentkezne.
+
+## A sorrend-invariánst a szerver őrzi
+
+*Egy határ nem előzheti meg a szomszédait.* A kliens is korlátoz (`dragBounds`), de a saját,
+esetleg elavult pillanatképe alapján — **két telefonnal ez kevés**. Ha az egyik az A határt
+10:00-ról 10:50-re, a másik a rá következő B-t 11:00-ról 10:10-re húzza, mindkét mozgatás
+érvényes a saját nézetében, együtt viszont keresztezik egymást, és ettől **néma módon
+felcserélődik két tevékenység sorrendje**.
+
+Ezért a `PATCH` a mentés pillanatában, a DB aktuális állapotából nézi meg a szomszédokat, egy
+`BEGIN IMMEDIATE` tranzakción belül. Ütközésnél 409 megy vissza; a kliens azonnal frissít, és a
+felhasználó a valós állapoton húzhat újra.
+
+A holtversenytörés itt is `(at, id)` — ugyanaz, amivel a `listMarkers` és a kliens rendez,
+különben mást jelentene a „szomszéd" a két oldalon.
 
 ## A carry-in — a rendszer legkönnyebben elrontható pontja
 

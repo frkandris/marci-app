@@ -273,16 +273,64 @@ export function createMarker(db, m) {
   return toMarker(db.prepare('SELECT * FROM markers WHERE id = ?').get(m.id));
 }
 
+/**
+ * A határ nem előzheti meg a szomszédait — és ezt a SZERVERNEK kell őriznie.
+ *
+ * A kliens is korlátoz (`dragBounds`), de a saját, esetleg elavult
+ * pillanatképe alapján. Két telefonnal ez kevés: ha az egyik az A határt
+ * 10:00-ról 10:50-re, a másik a rá következő B-t 11:00-ról 10:10-re húzza,
+ * mindkettő érvényes a SAJÁT nézetében, együtt viszont keresztezik egymást —
+ * és ettől néma módon FELCSERÉLŐDIK két tevékenység sorrendje.
+ *
+ * Ezért a szomszédokat a mentés pillanatában, a DB aktuális állapotából
+ * nézzük meg. Ütközésnél `'conflict'`-ot adunk vissza; a hívó 409-cel felel,
+ * a kliens frissít és újrapróbálhatja.
+ *
+ * A holtversenytörés `(at, id)` — ugyanaz, amivel a `listMarkers` és a kliens
+ * rendez, különben más lenne a "szomszéd" fogalma a két oldalon.
+ */
+function neighbours(db, cur) {
+  const prev = db
+    .prepare('SELECT at FROM markers WHERE at < ? OR (at = ? AND id < ?) ORDER BY at DESC, id DESC LIMIT 1')
+    .get(cur.at, cur.at, cur.id);
+  const next = db
+    .prepare('SELECT at FROM markers WHERE at > ? OR (at = ? AND id > ?) ORDER BY at ASC, id ASC LIMIT 1')
+    .get(cur.at, cur.at, cur.id);
+  return [prev, next];
+}
+
 export function updateMarker(db, id, patch) {
-  const cur = db.prepare('SELECT * FROM markers WHERE id = ?').get(id);
-  if (!cur) return null;
-  db.prepare('UPDATE markers SET at = ?, activity_id = ?, note = ? WHERE id = ?').run(
-    patch.at ?? cur.at,
-    patch.activityId ?? cur.activity_id,
-    patch.note !== undefined ? patch.note : (cur.note ?? null),
-    id,
-  );
-  return toMarker(db.prepare('SELECT * FROM markers WHERE id = ?').get(id));
+  // BEGIN IMMEDIATE: az ellenőrzés és az írás közé nem ékelődhet be másik író.
+  db.exec('BEGIN IMMEDIATE');
+  try {
+    const cur = db.prepare('SELECT * FROM markers WHERE id = ?').get(id);
+    if (!cur) {
+      db.exec('ROLLBACK');
+      return null;
+    }
+    const at = patch.at ?? cur.at;
+    if (at !== cur.at) {
+      const [prev, next] = neighbours(db, cur);
+      // Szigorú egyenlőtlenség: azonos `at` mellett az `id` döntené el a
+      // sorrendet, ami nem az, amit a felhasználó húzott.
+      if ((prev && at <= prev.at) || (next && at >= next.at)) {
+        db.exec('ROLLBACK');
+        return 'conflict';
+      }
+    }
+    db.prepare('UPDATE markers SET at = ?, activity_id = ?, note = ? WHERE id = ?').run(
+      at,
+      patch.activityId ?? cur.activity_id,
+      patch.note !== undefined ? patch.note : (cur.note ?? null),
+      id,
+    );
+    const row = toMarker(db.prepare('SELECT * FROM markers WHERE id = ?').get(id));
+    db.exec('COMMIT');
+    return row;
+  } catch (e) {
+    db.exec('ROLLBACK');
+    throw e;
+  }
 }
 
 export function deleteMarker(db, id) {

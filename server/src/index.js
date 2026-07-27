@@ -159,6 +159,10 @@ api.patch('/markers/:id', async (c) => {
   if (b.activityId !== undefined && !activityExists(db, b.activityId))
     return c.json({ error: 'unknown activityId' }, 409);
   const row = updateMarker(db, c.req.param('id'), b);
+  if (row === 'conflict')
+    // A másik telefon közben elmozdította a szomszédot. A kliens frissít,
+    // és a felhasználó a VALÓS állapoton húzhat újra.
+    return c.json({ error: 'a szomszédos határ közben elmozdult' }, 409);
   return row ? c.json(row) : c.json({ error: 'not found' }, 404);
 });
 

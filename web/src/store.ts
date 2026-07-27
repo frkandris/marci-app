@@ -68,7 +68,9 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
     } catch {
       /* nem JSON */
     }
-    throw new Error(detail);
+    const err = new Error(detail) as Error & { status?: number };
+    err.status = res.status;
+    throw err;
   }
   return res.status === 204 ? (undefined as T) : ((await res.json()) as T);
 }
@@ -200,14 +202,25 @@ export const addMarker = (activityId: string, at = Date.now(), note: string | nu
   });
 
 export const updateMarker = (id: string, patch: Partial<Marker>) =>
-  guard(async () =>
-    upsertLocal(
-      await api<Marker>(`/markers/${encodeURIComponent(id)}`, {
-        method: 'PATCH',
-        body: JSON.stringify(patch),
-      }),
-    ),
-  );
+  guard(async () => {
+    try {
+      return upsertLocal(
+        await api<Marker>(`/markers/${encodeURIComponent(id)}`, {
+          method: 'PATCH',
+          body: JSON.stringify(patch),
+        }),
+      );
+    } catch (e) {
+      // 409: a szerver visszautasította, mert a másik telefon közben
+      // elmozdította a szomszédos határt. A helyi kép ilyenkor BIZTOSAN
+      // elavult, ezért azonnal frissítünk — különben a felhasználó a 30 mp-es
+      // lekérdezésig a régi állapoton próbálkozna újra. A `setTimeout` azért
+      // kell, hogy a lekérés a `guard` záró generációlépése UTÁN induljon,
+      // különben saját magát érvénytelenítené.
+      if ((e as { status?: number }).status === 409) setTimeout(() => void refresh(), 0);
+      throw e;
+    }
+  });
 
 export const deleteMarker = (id: string) =>
   guard(async () => {

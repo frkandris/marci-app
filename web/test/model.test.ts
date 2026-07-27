@@ -343,3 +343,23 @@ test('a szegmens szélessége az őszi óraátállításnál sem lehet negatív'
   // Mesterségesen visszafelé menő faliórára is nemnegatív marad.
   assert.equal(segmentWidthPct(1000, 900, 50), 0);
 });
+
+test('az őszi ismétlődő órában a marker saját előfordulása marad', () => {
+  // Normál napon semmi nem változik: az átírás pontosan a kért időt adja.
+  const at = new Date(2026, 6, 10, 14, 0).getTime();
+  assert.equal(toTimeInput(retimeMarker(at, '15:20')), '15:20');
+  assert.equal(retimeMarker(at, '15:20'), new Date(2026, 6, 10, 15, 20).getTime());
+
+  // 2026-10-25: 03:00 CEST -> 02:00 CET, a 02:00–03:00 óra megismétlődik.
+  const first0230 = new Date(2026, 9, 25, 2, 30).getTime();
+  const second0230 = first0230 + 3_600_000;
+  // Ha tényleg van ismétlődő óra ebben a zónában, a két időbélyeg fali órája
+  // azonos — különben a teszt zónafüggetlenül is értelmes marad.
+  if (toTimeInput(second0230) === '02:30') {
+    const moved = retimeMarker(second0230, '02:45');
+    assert.equal(toTimeInput(moved), '02:45');
+    assert.ok(moved > second0230, 'a MÁSODIK 02:45-re megy, nem ugrik vissza');
+    // Az elsőé viszont marad az első.
+    assert.ok(retimeMarker(first0230, '02:45') < second0230);
+  }
+});

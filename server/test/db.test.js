@@ -240,3 +240,32 @@ test('a v2 migracio akkor is atvezet, ha az "ovi" MAR letezik', () => {
   assert.equal(acts.filter((a) => a.id === 'ovi').length, 1);
   assert.equal(listMarkers(db, 0, 9999).at(-1).activityId, 'ovi', 'a marker atallt');
 });
+
+test('a szerver elutasitja a szomszedait keresztezo hatarmozgatast', () => {
+  const db = openDb(':memory:');
+  const mk = (id, at) => createMarker(db, { id, at, activityId: '__none__' });
+  const T = Date.UTC(2026, 0, 1, 10, 0);
+  mk('a', T);
+  mk('b', T + 3600_000);
+  mk('c', T + 2 * 3600_000);
+
+  // Ket telefon elavult pillanatkepbol: 'a' elore, 'b' hatra — kulon-kulon
+  // ervenyesek, egyutt keresztezik egymast.
+  assert.ok(updateMarker(db, 'a', { at: T + 50 * 60_000 }), 'az elso meg belefer');
+  assert.equal(updateMarker(db, 'b', { at: T + 10 * 60_000 }), 'conflict', 'a masodik utkozik');
+  assert.equal(
+    db.prepare("SELECT at FROM markers WHERE id = 'b'").get().at,
+    T + 3600_000,
+    'a b valtozatlan maradt',
+  );
+
+  // Ami nem keresztez, az atmegy; a szomszed nelkuli szelso ertekek is.
+  assert.ok(updateMarker(db, 'b', { at: T + 55 * 60_000 }));
+  assert.ok(updateMarker(db, 'c', { at: T + 10 * 3600_000 }), 'az utolsonak nincs felso szomszedja');
+  assert.equal(updateMarker(db, 'c', { at: T + 55 * 60_000 }), 'conflict', 'de az elozet nem elozheti');
+
+  // A tisztan tipusvaltas (at nelkul) sosem utkozik.
+  assert.ok(updateMarker(db, 'b', { activityId: '__none__' }));
+  assert.equal(updateMarker(db, 'nincs-ilyen', { at: T }), null);
+  db.close();
+});

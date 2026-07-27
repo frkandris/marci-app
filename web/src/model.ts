@@ -208,7 +208,15 @@ export function timeInLogicalDay(dayFrom: number, hhmm: string, hour = DAY_START
  * szomszéd-korlát visszavágna — elrontva a kezdést.
  */
 export function retimeMarker(at: number, hhmm: string, hour = DAY_START_HOUR): number {
-  return timeInLogicalDay(dayStartMs(dayKey(at, hour), hour), hhmm, hour);
+  const base = timeInLogicalDay(dayStartMs(dayKey(at, hour), hour), hhmm, hour);
+  // Ősszel egy óra MEGISMÉTLŐDIK: ugyanaz a HH:MM kétszer létezik. A `setHours`
+  // mindig az elsőt adja, így a MÁSODIK 02:30 átírása 02:45-re visszaugrana az
+  // első 02:45-re — az előzménye elé, ahol a szomszéd-korlát szinte nullára
+  // vágná a szegmenst. A marker saját idejéhez közelebbi előfordulást
+  // választjuk. A feltétel csak az ismétlődő órában teljesül: máskor a
+  // +1 óra már más HH:MM-et ad.
+  const alt = base + 3_600_000;
+  return toTimeInput(alt) === hhmm && Math.abs(alt - at) < Math.abs(base - at) ? alt : base;
 }
 
 /** Az `<input type="time">` által várt alak. */
