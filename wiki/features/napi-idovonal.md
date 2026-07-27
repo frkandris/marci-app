@@ -52,8 +52,27 @@ Mindhárom **egyetlen rekord egyetlen mezőjét** írja — ez a
 | Művelet | Mozdulat | Mit ír |
 |---|---|---|
 | **Határ mozgatása** | A `╪` fogantyú húzása | `marker.at` |
-| **Típus átírása** | Koppintás a szegmensre → típusválasztó | `marker.activity_id` |
-| **Marker törlése** | Koppintás a szegmensre → Törlés | `marker.deleted_at`; a két szomszédos szegmens összeolvad |
+| **Kezdet átírása** | Koppintás → „Kezdet" időmező | `marker.at` |
+| **Vége átírása** | Koppintás → „Vége" időmező | a **KÖVETKEZŐ** marker `at`-je |
+| **Típus átírása** | Koppintás → típusválasztó | `marker.activity_id` |
+| **Törlés** | Koppintás → Törlés | `activity_id = '__none__'` — a sáv **nem rögzített** lesz |
+
+## Miért nem a marker eldobása a törlés
+
+Kézenfekvő lenne, hogy a „Törlés" egyszerűen eldobja a markert. A
+[határjelölő modellben](/decisions/2026-07-27-hatarjelolo-adatmodell.md) ez viszont azt jelentené,
+hogy **az előző tevékenység elnyeli a sávot** — vagyis olyan időt tulajdonítanánk neki, ami nem az
+volt. A felhasználó ezt joggal érzi hibának: „töröltem, erre átváltott másra".
+
+Ezért a törlés a szegmenst **nem rögzítetté** teszi (`__none__`). Kivétel: ha az előző szegmens
+már úgyis lyuk, akkor a markert tényleg eldobjuk, hogy ne halmozódjanak az üres határok.
+
+## A vég szerkesztése a következő markert mozgatja
+
+Ez a modellből következik: egy szegmensnek nincs saját `end` mezője, a vége a **rákövetkező marker
+kezdete**. A „Vége" mező tehát a következő markert írja — a korlátai is annak a szomszédaihoz
+igazodnak. Ha nincs következő marker, a szegmens fut, és a vég nem szerkeszthető
+(„most is fut").
 
 Nincs „szegmens nyújtása" művelet, mert nincsenek szegmensek — csak határok. A „hoppá, mégsem
 aludt el" tipikusan a **típus átírása** (alvás → altatás) vagy a **határ húzása** (később aludt el).

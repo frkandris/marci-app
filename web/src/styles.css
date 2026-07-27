@@ -717,6 +717,25 @@ button { cursor: pointer; }
 
 .sheet__grid { display: flex; flex-wrap: wrap; gap: 8px; }
 
+.times { display: flex; gap: 10px; margin-bottom: 16px; }
+.times__field { flex: 1; display: flex; flex-direction: column; gap: 5px; }
+.times__field input {
+  width: 100%;
+  padding: 11px 12px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: var(--bg);
+  font-size: 17px;
+  font-variant-numeric: tabular-nums;
+}
+.times__running {
+  padding: 11px 12px;
+  border: 1px dashed var(--line);
+  border-radius: 11px;
+  color: var(--text-dim);
+  font-size: 14px;
+}
+
 /* Tevékenység-választó pirula a napi idővonal szerkesztőlapján. */
 .chip {
   display: inline-flex;

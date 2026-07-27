@@ -7,6 +7,12 @@ merge drivert működőképessé és a fájlt grep-elhetővé:
 
 ## 2026-07-27
 
+* **Változás**: A napi idővonalon a „Törlés" mostantól **nem rögzítetté** teszi a szegmenst (`__none__`), nem eldobja a markert. A marker eldobása az ELŐZŐ tevékenységnek tulajdonította volna a sávot — a felhasználó ezt joggal érezte hibának.
+* **Létrehozás**: A szegmens **kezdete és vége** közvetlenül szerkeszthető a lapon. A vég a rákövetkező marker kezdete, ezért azt mozgatja; futó szegmensnél nem szerkeszthető.
+* **Létrehozás**: Napi összesítő a Nap nézet fejlécében, tevékenységenként, hossz szerint rendezve.
+* **Létrehozás**: „Mégsem ez volt — vissza: X" a futó tevékenység kártyáján, 10 perces ablakban; a Toggl „Discard idle and continue" mintája alapján.
+* **Csere**: A kézzel írt csippentés-kezelő helyett `@use-gesture/react`. A `react-zoom-pan-pinch` azért nem jó ide, mert a tartalmat vizuálisan transzformálja — a feliratok is nyúlnának.
+
 * **Döntés**: [Konsta UI a vázhoz](decisions/2026-07-27-konsta-ui.md) — Tailwind v4 + iOS téma; a napsáv, idővonal és gombrács saját CSS-ben marad, mert ezekre nincs komponens.
 * **Buktató**: A Konsta a `.dark` OSZTÁLYRA szűr, nem `prefers-color-scheme`-re — a `main.tsx` kézzel tartja szinkronban.
 * **Buktató**: A Konsta `ListInput` **fehér képernyővel elszáll** (5.2.0): `title: null`-t ad tovább, a `cls()` pedig elhasal `null` argumentumon. Saját input maradt.

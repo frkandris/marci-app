@@ -180,6 +180,27 @@ export function dailyTotals(segments: Segment[]): Array<{ activityId: string; ms
     .sort((a, b) => b.ms - a.ms);
 }
 
+/** Ugyanaz a naptári nap, új óra:perc. A `HH:MM` az `<input type="time">` alakja. */
+export function withTimeOfDay(at: number, hhmm: string): number {
+  const [h, m] = hhmm.split(':').map(Number);
+  const d = new Date(at);
+  d.setHours(h, m, 0, 0);
+  return d.getTime();
+}
+
+/** Az `<input type="time">` által várt alak. */
+export function toTimeInput(at: number): string {
+  const d = new Date(at);
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+/** Az adott marker UTÁNI marker — ez határozza meg a szegmens VÉGÉT. */
+export function nextOf(all: Marker[], id: string): Marker | null {
+  const ms = activeMarkers(all);
+  const i = ms.findIndex((m) => m.id === id);
+  return i >= 0 && i < ms.length - 1 ? ms[i + 1] : null;
+}
+
 export const SNAP_MS = 5 * 60_000;
 export const snap = (t: number, grid = SNAP_MS) => Math.round(t / grid) * grid;
 

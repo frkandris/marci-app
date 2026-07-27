@@ -8,12 +8,15 @@ import {
   dayKey,
   dragBounds,
   markersIn,
+  nextOf,
   previousOf,
   runningMarker,
   sameClockPreviousDay,
   segmentsFor,
   shiftDayKey,
   snap,
+  toTimeInput,
+  withTimeOfDay,
 } from '../src/model.ts';
 import type { Marker } from '../src/model.ts';
 
@@ -212,4 +215,22 @@ test('dailyTotals tevékenységenként összegez, hossz szerint rendezve', () =>
   assert.deepEqual(t.map((x) => x.activityId), ['jatek', 'etkezes'], 'hosszabb elöl');
   assert.equal(t[0].ms, 3.5 * 3600_000, 'a két játék-szakasz összeadódik');
   assert.equal(t[1].ms, 0.5 * 3600_000);
+});
+
+test('withTimeOfDay megtartja a naptári napot, csak az órát cseréli', () => {
+  const t = at(2026, 7, 27, 18, 25);
+  const out = new Date(withTimeOfDay(t, '06:05'));
+  assert.equal(out.getDate(), 27);
+  assert.equal(out.getHours(), 6);
+  assert.equal(out.getMinutes(), 5);
+  assert.equal(toTimeInput(t), '18:25');
+});
+
+test('nextOf a szegmens VÉGÉT meghatározó markert adja', () => {
+  const markers = [
+    mk('a', at(2026, 7, 27, 8), 'jatek'),
+    mk('b', at(2026, 7, 27, 9), 'etkezes'),
+  ];
+  assert.equal(nextOf(markers, 'a')?.id, 'b');
+  assert.equal(nextOf(markers, 'b'), null, 'a futó szegmensnek nincs vége-markere');
 });

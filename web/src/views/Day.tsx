@@ -16,9 +16,13 @@ import {
   fmtTime,
   liveActivities,
   markersIn,
+  nextOf,
+  previousOf,
   segmentsFor,
   shiftDayKey,
   snap,
+  toTimeInput,
+  withTimeOfDay,
 } from '../model';
 
 interface Drag {
@@ -168,6 +172,19 @@ export function Day({
   }
 
   const sheetMarker = sheet ? markers.find((m) => m.id === sheet) : null;
+  const endMarker = sheetMarker ? nextOf(markers, sheetMarker.id) : null;
+
+  /**
+   * A szegmens „törlése" NEM a marker eldobása: az csak összevonná az előzővel,
+   * vagyis az előző tevékenységnek tulajdonítana olyan időt, ami nem az volt.
+   * Helyette a sáv NEM RÖGZÍTETT lesz. Ha az előző már úgyis lyuk, a markert
+   * eldobjuk, hogy ne halmozódjanak az üres határok.
+   */
+  async function clearSegment(id: string) {
+    const prev = previousOf(markers, id);
+    if (prev && prev.activityId === NONE) await deleteMarker(id);
+    else await updateMarker(id, { activityId: NONE });
+  }
 
   return (
     <div className="day">
@@ -290,41 +307,74 @@ export function Day({
       <Sheet opened={!!sheetMarker} onBackdropClick={() => setSheet(null)} className="marci-sheet">
         {sheetMarker && (
           <Block>
-            <h3>
-              {fmtTime(sheetMarker.at)} — {byId.get(sheetMarker.activityId)?.label ?? 'Vége'}
-            </h3>
+            <h3>{byId.get(sheetMarker.activityId)?.label ?? 'Vége'}</h3>
+
+            <div className="times">
+              <label className="times__field">
+                <span className="eyebrow">Kezdet</span>
+                <input
+                  type="time"
+                  value={toTimeInput(sheetMarker.at)}
+                  onChange={(e) => {
+                    const [min, max] = dragBounds(markers, sheetMarker.id);
+                    const t = withTimeOfDay(sheetMarker.at, e.target.value);
+                    void updateMarker(sheetMarker.id, {
+                      at: Math.min(Math.max(t, min), max),
+                    });
+                  }}
+                />
+              </label>
+
+              <label className="times__field">
+                <span className="eyebrow">Vége</span>
+                {endMarker ? (
+                  <input
+                    type="time"
+                    value={toTimeInput(endMarker.at)}
+                    onChange={(e) => {
+                      // A VÉGE a KÖVETKEZŐ marker kezdete — azt mozgatjuk.
+                      const [min, max] = dragBounds(markers, endMarker.id);
+                      const t = withTimeOfDay(endMarker.at, e.target.value);
+                      void updateMarker(endMarker.id, {
+                        at: Math.min(Math.max(t, min), max),
+                      });
+                    }}
+                  />
+                ) : (
+                  <span className="times__running">most is fut</span>
+                )}
+              </label>
+            </div>
+
             <div className="sheet__grid">
               {live.map((a) => (
                 <button
                   key={a.id}
                   className={`chip ${sheetMarker.activityId === a.id ? 'is-active' : ''}`}
                   style={{ '--c': a.color } as React.CSSProperties}
-                  onClick={() => {
-                    void updateMarker(sheetMarker.id, { activityId: a.id });
-                    setSheet(null);
-                  }}
+                  onClick={() => void updateMarker(sheetMarker.id, { activityId: a.id })}
                 >
                   <Icon name={a.icon} size={16} />
                   {a.label}
                 </button>
               ))}
-              <button
-                className={`chip chip--none ${sheetMarker.activityId === NONE ? 'is-active' : ''}`}
+            </div>
+
+            <div className="sheet__row">
+              <Button
+                rounded
+                outline
+                colors={{ textIos: 'text-red-500', outlineBorderIos: 'border-red-500' }}
                 onClick={() => {
-                  void updateMarker(sheetMarker.id, { activityId: NONE });
+                  void clearSegment(sheetMarker.id);
                   setSheet(null);
                 }}
               >
-                <Icon name="stop" size={16} />
-                Vége
-              </button>
-            </div>
-            <div className="sheet__row">
-              <Button rounded outline colors={{ textIos: 'text-red-500', outlineBorderIos: 'border-red-500' }}
-                onClick={() => { void deleteMarker(sheetMarker.id); setSheet(null); }}>
                 Törlés
               </Button>
-              <Button rounded clear onClick={() => setSheet(null)}>Kész</Button>
+              <Button rounded clear onClick={() => setSheet(null)}>
+                Kész
+              </Button>
             </div>
           </Block>
         )}
