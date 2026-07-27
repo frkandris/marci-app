@@ -176,7 +176,12 @@ export function Day({
       setSheet(d.id);
       return;
     }
-    await updateMarker(d.id, { at: d.at });
+    // Csak SIKERES mentés után jelentjük sikernek: hiba esetén az
+    // `updateMarker` null-t ad és hibasávot mutat, a "Időpont módosítva"
+    // pedig hazugság lenne — ráadásul egy meg sem történt változást
+    // ajánlana visszavonásra.
+    const saved = await updateMarker(d.id, { at: d.at });
+    if (!saved) return;
     setUndo({ id: d.id, at: d.origAt });
     setTimeout(() => setUndo((u) => (u?.id === d.id ? null : u)), 6000);
   }

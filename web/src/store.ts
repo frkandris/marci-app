@@ -87,12 +87,17 @@ function window_(days = state.daysLoaded): [number, number] {
  */
 let refreshGen = 0;
 let replacementQueued = false;
+/** Hány lekérés fut épp. Ebből tudjuk, KI tette elavulttá a miénket. */
+let refreshInFlight = 0;
 
 /**
- * Egy elavulttá vált lekérés pótlása. Azonnal, a mikrotask-sor után indul, és
- * egyszerre csak egy van függőben. A pótlás azért kell, mert az elavult
- * válasz nem írhat állapotot — így a `loading` is beragadna, és a nézet a
- * következő pollig hiányos maradna.
+ * Egy elavulttá vált lekérés pótlása.
+ *
+ * CSAK akkor szabad pótolni, ha rajtunk kívül nem fut másik lekérés — vagyis
+ * az elavulást egy MUTÁCIÓ okozta. Ha egy újabb lekérés miatt lettünk
+ * elavultak, az fog állapotot írni; ilyenkor pótolni öngerjesztő láncot
+ * indítana (a pótlás elavulttá tenné a futó újat, az megint pótolna…), és a
+ * `loading` sosem tisztulna le.
  */
 function queueReplacementRefresh() {
   if (replacementQueued) return;
@@ -105,6 +110,7 @@ function queueReplacementRefresh() {
 
 export async function refresh(days = state.daysLoaded) {
   const gen = ++refreshGen;
+  refreshInFlight++;
   // A kért ablakot AZONNAL rögzítjük. Ha ezt a lekérést egy mutáció eldobja,
   // a következő poll már a szélesebb ablakot kéri — különben egy régebbi nap
   // tartósan hiányos maradna.
@@ -116,8 +122,9 @@ export async function refresh(days = state.daysLoaded) {
       api<Activity[]>('/activities'),
     ]);
     if (gen !== refreshGen) {
-      // Közben mutáció történt — ezt a választ eldobjuk, és pótoljuk.
-      queueReplacementRefresh();
+      // Csak akkor pótolunk, ha egyedül futunk — különben egy újabb lekérés
+      // tett elavulttá, és az úgyis ír állapotot.
+      if (refreshInFlight === 1) queueReplacementRefresh();
       return;
     }
     set({ markers, activities, daysLoaded: days, error: null, ready: true });
@@ -125,12 +132,13 @@ export async function refresh(days = state.daysLoaded) {
     // Mindig online az elvárás, de a hálózat akkor is elmehet — ilyenkor a
     // korábban betöltött adat a képernyőn marad, és jelezzük, hogy elavult.
     if (gen !== refreshGen) {
-      queueReplacementRefresh();
+      if (refreshInFlight === 1) queueReplacementRefresh();
       return;
     }
     set({ error: `Nem érhető el a szerver (${(e as Error).message})` });
     set({ ready: true });
   } finally {
+    refreshInFlight--;
     if (gen === refreshGen) set({ loading: false });
   }
 }
