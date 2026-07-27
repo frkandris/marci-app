@@ -5,10 +5,15 @@
 # --- 1. Frontend build ------------------------------------------------------
 FROM node:24-alpine AS build
 WORKDIR /app
+# NODE_ENV=development a build fázisban: ha a platform (Coolify) build-time
+# env-ként beinjektálja a NODE_ENV=production-t, az `npm ci` kihagyná a
+# devDependencies-t, és nem lenne se vite, se typescript a buildhez.
+# Az --include=dev ezt kétszeresen is bebiztosítja.
+ENV NODE_ENV=development
 COPY package.json package-lock.json ./
 COPY web/package.json web/
 COPY server/package.json server/
-RUN npm ci
+RUN npm ci --include=dev
 COPY web/ web/
 RUN npm run build --workspace=web
 
