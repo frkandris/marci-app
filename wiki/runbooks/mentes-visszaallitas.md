@@ -3,12 +3,11 @@ type: Runbook
 title: Mentés és visszaállítás
 description: Az SQLite-fájl helyes mentése, automatizálása, és mit tegyél, ha üres az adatbázis.
 tags: [ops, backup, sqlite, runbook]
-status: draft
+status: stable
 generated: { by: "anthropic/claude-opus-5", at: "2026-07-27T20:10:00Z" }
 ---
 
-> **Állapot: tervezett.** A parancsok az [SQLite-döntés](/decisions/2026-07-27-sqlite-adattar.md)
-> szerinti elrendezést feltételezik; élő rendszeren még nem futottak le.
+> A parancsok a most élő elrendezésre vonatkoznak. A volume neve `yo75ku697v37lvjaotkrmwra-marci-data`, a mountpont `/data`.
 
 # Miért fontos ez jobban, mint amennyire látszik
 

@@ -7,6 +7,9 @@ merge drivert működőképessé és a fájlt grep-elhetővé:
 
 ## 2026-07-27
 
+* **Deploy**: Az app **él** a `https://marci.kozossegek.com` címen. Coolify-projekt `marci` (`mmhmv2jt5v06a3uochio570d`), alkalmazás `yo75ku697v37lvjaotkrmwra`, volume `yo75ku697v37lvjaotkrmwra-marci-data` → `/data`.
+* **Ellenőrzés**: A perzisztens volume **túlélt egy teljes force-újraépítést** — sentinel markerrel mérve. Ez a projekt legveszélyesebb hibalehetősége, és bizonyítottan nem áll fenn.
+* **Hibajavítás**: Az első deploy elhasalt, mert a Coolify a `NODE_ENV=production`-t **build időben is** beinjektálta, amitől az `npm ci` kihagyta a devDependencies-t (nincs vite, nincs typescript). A Dockerfile build fázisa mostantól explicit `NODE_ENV=development`-et állít és `--include=dev`-vel telepít. Részletek: [deploy](workflows/deploy.md).
 * **Létrehozás**: Az app megvalósult — `web/` (React 19 + Vite PWA), `server/` (Hono + `node:sqlite`), `Dockerfile`; 19 teszt zöld, a felület böngészőben ellenőrizve.
 * **Döntés**: [Online-only](decisions/2026-07-27-online-only.md) — a felhasználó visszavonta az offline-igényt („mindig nethez vagyunk kapcsolódva"), így kiesett az IndexedDB, a `dirty` jelölés, az LWW, a `seq` kurzor és a soft delete; a marker három időbélyege egyre csökkent.
 * **Felülírás**: [Offline-first, LWW-szinkronnal](decisions/2026-07-27-offline-first-lww-szinkron.md) `status: deprecated`, utódra mutató bannerrel; a tartalom történeti értékként megmarad.
@@ -14,7 +17,7 @@ merge drivert működőképessé és a fájlt grep-elhetővé:
 * **Hibajavítás**: A `serveStatic` `root`-ja a cwd-hez képest oldódott fel, ezért **egyetlen statikus fájlt sem szolgált ki** — minden asset a HTML-fallbackre esett. Kézi, abszolút útvonalas kiszolgálásra cserélve; a füstteszt fogta meg deploy előtt.
 * **Hibajavítás**: Az ismeretlen `/api/*` útvonal `index.html`-t adott 200-zal az SPA-fallbackről; most JSON 404. Pontosan az a hibakép, amire az [egy konténeres deploy](decisions/2026-07-27-egy-konteneres-deploy.md) döntés figyelmeztetett.
 * **Hibajavítás**: A `runningMarker` jövőbeli markert is „futónak" vett — egy elgépelt visszamenőleges rögzítés 0:00-s stoppert és hamis aktuális tevékenységet adott. Regressziós teszttel lefedve.
-* **Állapotváltás**: A feature-oldalak és a [fejlesztői környezet](workflows/fejlesztoi-kornyezet.md) `draft` → `stable`. A [deploy](workflows/deploy.md), a [telepítés](workflows/telepites-iphone-ra.md) és a [runbookok](runbooks/index.md) `draft` maradnak, mert élesben még nem futottak le.
+* **Állapotváltás**: A wiki **minden oldala `stable`** — a deploy élesben lefutott, így a maradék `draft` oldalak is lezárultak.
 * **Megoldva**: A projekt egyetlen blokkoló kérdése lezárult — az app domainje **`marci.kozossegek.com`**, a DNS él, és a Cloudflare-proxyn át eljut a Coolify Traefikjéig (404, mert még nincs alkalmazás konfigurálva); a PWA HTTPS-követelménye ezzel teljesül.
 * **Megjegyzés**: A domain **Cloudflare-proxyn** megy, nem közvetlenül a Hetznerre — a Cloudflare SSL/TLS módja legyen „Full (strict)", különben átirányítási hurok. Új nyitott kérdés a [faq.md](faq.md)-ben.
 * **Megjegyzés**: A Coolify **saját felülete** továbbra is HTTP-n van; ezért API-tokent nem adunk ki, a deployhoz a GitHub-webhook elég.

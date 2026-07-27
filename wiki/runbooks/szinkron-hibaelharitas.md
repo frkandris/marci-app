@@ -3,12 +3,11 @@ type: Runbook
 title: Szinkronhiba-elhárítás
 description: Ha a két telefon nem ugyanazt mutatja — a diagnózis sorrendje.
 tags: [ops, sync, runbook, troubleshooting]
-status: draft
+status: stable
 generated: { by: "anthropic/claude-opus-5", at: "2026-07-27T20:15:00Z" }
 ---
 
-> **Állapot: tervezett.** A leírt tünetek a tervezett protokollból következnek; élesben még nem
-> fordultak elő.
+> Az online-only modell óta a legtöbb korábbi tünet tárgytalan — lásd [online-only](/decisions/2026-07-27-online-only.md).
 
 # Tünet: „A másik telefonon nem látszik, amit rögzítettem"
 

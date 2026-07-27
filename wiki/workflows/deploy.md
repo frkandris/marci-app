@@ -3,12 +3,11 @@ type: Workflow
 title: Deploy
 description: Egyszeri Coolify-beállítás, majd git push → automatikus build és élesedés.
 tags: [deploy, coolify, ops, workflow]
-status: draft
+status: stable
 generated: { by: "anthropic/claude-opus-5", at: "2026-07-27T20:00:00Z" }
 ---
 
-> **Állapot: tervezett.** A Coolify-alkalmazás még nincs létrehozva; a példány adatai viszont
-> ellenőrzöttek — lásd [Coolify + Hetzner](/integrations/coolify-hetzner.md).
+> **Élesben lefutott** 2026-07-27-én. Az alábbi értékek ellenőrzöttek, nem tervezettek.
 
 # A domain
 
@@ -16,6 +15,18 @@ generated: { by: "anthropic/claude-opus-5", at: "2026-07-27T20:00:00Z" }
 A HTTPS-előfeltétel ezzel teljesül. Egy dolgot érdemes ellenőrizni: a Cloudflare SSL/TLS módja
 legyen **„Full (strict)"**, ne „Flexible" — különben átirányítási hurkot kaphatsz.
 [Részletek](/integrations/coolify-hetzner.md).
+
+# A létrehozott erőforrások
+
+Ezek 2026-07-27-én, a Coolify API-n keresztül jöttek létre:
+
+| | |
+|---|---|
+| Projekt | `marci` — uuid `mmhmv2jt5v06a3uochio570d` |
+| Környezet | `production` — uuid `gzqrl3nnggt8gcmpw0h339yd` |
+| Alkalmazás | `marci` — uuid `yo75ku697v37lvjaotkrmwra` |
+| Szerver | `localhost` — uuid `ult9s5h008z6qsmhnqo5c7zl` |
+| Volume | `yo75ku697v37lvjaotkrmwra-marci-data` → `/data` |
 
 # Egyszeri beállítás a Coolify-ban
 
@@ -77,6 +88,29 @@ végső image) → healthcheck → átállás.
 3. **A telefonok frissülnek-e**: a service worker miatt **nem azonnal**. Kell egy explicit
    frissítési folyamat (`skipWaiting` + „új verzió elérhető" jelzés), különben a telefonok
    napokig a régi kódot futtathatják — lásd [iOS Safari PWA](/integrations/ios-safari-pwa.md).
+
+# 🔴 A build-time NODE_ENV csapda
+
+**Az első deploy emiatt hasalt el.** A Coolify a környezeti változókat **build időben is**
+beinjektálja. Egy `NODE_ENV=production` változótól az `npm ci` **kihagyja a devDependencies-t** —
+így nincs se `vite`, se `typescript`, és a frontend build elszáll.
+
+A Dockerfile ezért a build fázisban explicit `ENV NODE_ENV=development`-et állít, és
+`npm ci --include=dev`-vel telepít. A futásidejű image külön fázis, ott `NODE_ENV=production`.
+
+**Következmény:** `NODE_ENV`-et **ne vegyél fel** a Coolify környezeti változói közé. A Dockerfile
+amúgy is beállítja a futtató fázisban.
+
+# A Coolify API néhány szeszélye
+
+Ha valaha újra API-ból konfigurálnád (a token kockázatáról lásd
+[Coolify + Hetzner](/integrations/coolify-hetzner.md)):
+
+- A projekt `description` mezője **nem fogad el** kettőspontot és hosszú gondolatjelet
+  („The description may only contain… - _ . , ! ? ( ) ' \" + = * / @ &").
+- A `POST /applications/{uuid}/envs` **nem fogadja el** az `is_build_time` mezőt.
+- A perzisztens tároló típusa **`persistent`** — nem `volume` és nem `bind`.
+  `POST /applications/{uuid}/storages` `{"name","mount_path","type":"persistent"}`.
 
 # Ha elromlik
 

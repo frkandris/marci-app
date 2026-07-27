@@ -8,10 +8,10 @@ Egy kétfelhasználós PWA Marci napi időtöltéseinek rögzítésére: mikor k
 vacsora, a fürdés, az altatás, mikor aludt el, mikor ébredt. Két iPhone-ra telepítve,
 kezdőképernyőre kitett webappként, saját Hetzner-szerveren.
 
-> **2026-07-27: az app megvan és lokálisan ellenőrzött.** `web/` (React PWA) + `server/`
-> (Hono + `node:sqlite`) + `Dockerfile`. 19 teszt zöld. Ami még `draft`: a
-> [deploy](workflows/deploy.md), a [telepítés](workflows/telepites-iphone-ra.md) és a
-> [runbookok](runbooks/index.md) — ezek élesben még nem futottak le.
+> **2026-07-27: az app él a [marci.kozossegek.com](https://marci.kozossegek.com) címen.**
+> `web/` (React 19 PWA) + `server/` (Hono + `node:sqlite`) + `Dockerfile`, Coolify-on.
+> 19 teszt zöld, a deploy lefutott, és a perzisztens volume egy teljes újraépítést is túlélt.
+> A telepítés menete: [Telepítés iPhone-ra](workflows/telepites-iphone-ra.md).
 
 # Kezdd itt
 

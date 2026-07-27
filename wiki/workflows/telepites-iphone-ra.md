@@ -3,11 +3,11 @@ type: Workflow
 title: Telepítés iPhone-ra
 description: A kezdőképernyőre tétel lépésről lépésre, mindkét telefonra — és a buktatók.
 tags: [ios, pwa, install, workflow]
-status: draft
+status: stable
 generated: { by: "anthropic/claude-opus-5", at: "2026-07-27T20:05:00Z" }
 ---
 
-> **Állapot: tervezett.** Az app még nem létezik és nincs domain; ez a szándékolt folyamat.
+> **Az app él** a `https://marci.kozossegek.com` címen, HTTPS-en. A menet innentől bármikor elvégezhető.
 
 # Miért kell ezt leírni
 

@@ -50,16 +50,12 @@ te hozol létre, szerkesztesz és törölsz. A wiki a forrásokból származik, 
 
 # A wiki jelenlegi állapota
 
-**2026-07-27: az app megvan.** `web/` (React 19 + Vite PWA) + `server/` (Hono + `node:sqlite`) +
-`Dockerfile`; 19 teszt zöld, a felület böngészőben ellenőrizve.
+**2026-07-27: a projekt él.** Az app a [marci.kozossegek.com](https://marci.kozossegek.com)
+címen fut — `web/` (React 19 + Vite PWA) + `server/` (Hono + `node:sqlite`) + `Dockerfile`,
+Coolify-on, perzisztens volume-mal. 19 teszt zöld.
 
-Ami még `status: draft`: a [deploy](/workflows/deploy.md), a
-[telepítés iPhone-ra](/workflows/telepites-iphone-ra.md) és a [runbookok](/runbooks/index.md) —
-ezek élesben még nem futottak le. **Amikor lefutottak, váltsd `stable`-re**, töröld a bannert, és
-javítsd, ahol a valóság eltért.
-
-A táblázatban felsorolt források most már valódiak: a kódbázis létezik, tehát `file:line`
-hivatkozásokkal kell dolgozni, nem leírással.
+**Minden oldal `status: stable`.** Nincs több tervet leíró lap; ha valamit ezután írsz, az
+megvalósult dolgot dokumentáljon, `file:line` hivatkozásokkal.
 
 # Mikor kell frissíteni a wikit
 
