@@ -72,13 +72,16 @@ törölni.)
 
 ## Folytatás
 
-Ha a **nap utolsó** tevékenységét nézzük, és épp **semmi nem fut** („Vége" állapotban vagyunk), a
-lapon megjelenik a **Folytatás most** gomb. Ez ugyanazt a tevékenységet indítja újra a **jelen
-pillanattal**.
+Ha egy szegmenst közvetlenül egy **„Vége"** zár le, és az a **legutolsó** marker (vagyis épp
+semmi nem fut), a lapon megjelenik a **Folytatás** gomb. Ez a lezáró markert **eldobja**, amitől
+az eredeti szegmens folytatódik tovább.
 
-Szándékosan nem a régi szegmenst nyújtjuk meg: a „Vége" és a folytatás közt eltelt idő tényleg nem
-az a tevékenység volt, és hazugság lenne annak tulajdonítani. Új marker jön létre, a lyuk pedig
-lyuk marad.
+**Nem új eseményt hoz létre.** Az első változat ezt csinálta, és rossz volt: a felhasználó azt
+látta, hogy „a folytatás csinált egy új alvás eseményt". A folytatás jelentése az, hogy *mégsem
+ért véget* — nem az, hogy *kezdjük újra*.
+
+A gomb **megmutatja, mennyi idő adódik hozzá** („Folytatás (+12 p)"), mert a lezárás óta eltelt
+idő visszamenőleg ehhez a tevékenységhez kerül. Így nem lehet véletlenül órákat hozzáírni.
 
 ## Miért nem a marker eldobása a törlés
 

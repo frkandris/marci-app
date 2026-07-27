@@ -199,16 +199,20 @@ export function Day({
   const endMarker = sheetMarker ? nextOf(markers, sheetMarker.id) : null;
 
   /**
-   * Folytatás: ha a nap UTOLSÓ tevékenységét nézzük, és épp semmi nem fut
-   * („Vége" állapot), akkor ugyanezt a tevékenységet MOST újraindíthatjuk.
-   * Nem a régi szegmenst nyújtjuk meg — új marker jön létre a jelen
-   * pillanattal —, mert a közte eltelt idő tényleg nem az volt.
+   * Folytatás: a szegmenst lezáró „Vége" marker ELDOBÁSA, amitől az eredeti
+   * szegmens folytatódik tovább — nem új esemény jön létre.
+   *
+   * Csak akkor kínáljuk fel, ha a szegmenst közvetlenül egy `__none__` zárja,
+   * és az a LEGUTOLSÓ marker. Így egyértelmű, mit jelent: „mégsem ért véget".
+   * A hozzáadódó idő a gombon látszik, mert a lezárás óta eltelt idő
+   * visszamenőleg ehhez a tevékenységhez kerül.
    */
+  const closer =
+    sheetMarker && sheetMarker.activityId !== NONE ? nextOf(markers, sheetMarker.id) : null;
   const canResume =
-    !!sheetMarker &&
-    sheetMarker.activityId !== NONE &&
-    segments.length > 0 &&
-    segments[segments.length - 1].markerId === sheetMarker.id &&
+    !!closer &&
+    closer.activityId === NONE &&
+    nextOf(markers, closer.id) === null &&
     runningMarker(markers) === null;
 
   /**
@@ -447,16 +451,17 @@ export function Day({
               ))}
             </div>
 
-            {canResume && (
+            {canResume && closer && (
               <div className="sheet__row">
                 <Button
                   rounded
                   onClick={() => {
-                    void addMarker(sheetMarker.activityId);
+                    // A lezáró marker eldobása: az eredeti szegmens folytatódik.
+                    void deleteMarker(closer.id);
                     setSheet(null);
                   }}
                 >
-                  Folytatás most
+                  Folytatás (+{fmtDuration(Date.now() - closer.at)})
                 </Button>
               </div>
             )}
