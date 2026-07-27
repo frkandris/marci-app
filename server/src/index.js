@@ -151,6 +151,33 @@ api.get('/markers', (c) => {
 const CLOCK_SKEW_MS = 5 * 60_000;
 const inFuture = (at) => at > Date.now() + CLOCK_SKEW_MS;
 
+/**
+ * A napi nézethez kellő MINDEN adat EGY pillanatképből.
+ *
+ * Külön `/markers` és `/activities` kérésnél a kettő közé beeshet a másik
+ * telefon módosítása: a marker még hivatkozna egy típusra, amit a másik
+ * válasz már nem tartalmaz — a szegmens név és szín nélkül maradna a
+ * következő lekérdezésig. Egy olvasási tranzakcióban ez kizárt.
+ *
+ * Mellékhaszon: a 30 másodpercenkénti lekérdezés fele annyi kérés a
+ * telefonnak.
+ */
+api.get('/state', (c) => {
+  const from = Number(c.req.query('from'));
+  const to = Number(c.req.query('to'));
+  if (!Number.isFinite(from) || !Number.isFinite(to))
+    return c.json({ error: 'from/to' }, 400);
+  db.exec('BEGIN');
+  try {
+    const body = { markers: listMarkers(db, from, to), activities: listActivities(db) };
+    db.exec('COMMIT');
+    return c.json(body);
+  } catch (e) {
+    db.exec('ROLLBACK');
+    throw e;
+  }
+});
+
 api.post('/markers', async (c) => {
   const b = await json(c);
   if (!b) return c.json({ error: 'bad json' }, 400);

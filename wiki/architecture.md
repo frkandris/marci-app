@@ -127,6 +127,7 @@ archiválás nincs; a soft delete kizárólag API-ból érhető el, szándékos 
 | Végpont | Mit csinál |
 |---|---|
 | `GET /api/health` | `{ok, web}`. **A frontend meglétét is nézi** — a Docker build fázisa csendben elhasalhat úgy, hogy a szerver elindul, de csak 404-et ad |
+| `GET /api/state?from&to` | **A felület ezt használja.** A markerek és a típusok EGY olvasási tranzakcióból — lásd lent |
 | `GET /api/markers?from&to` | A `[from, to)` markerei **plusz a carry-in** — lásd lent |
 | `POST /api/markers` | `{at, activityId, note?}` → a létrehozott sor. **400, ha a jövőbe mutat** (5 perc óraeltérés-tűréssel), **409, ha arra az ezredmásodpercre már esik határ** |
 | `PATCH /api/markers/:id` | Részleges módosítás → a mentett sor. **409, ha az új idő keresztezné a szomszédokat** |
@@ -138,6 +139,17 @@ archiválás nincs; a soft delete kizárólag API-ból érhető el, szándékos 
 
 Az ismeretlen `/api/*` útvonal **JSON 404-et** ad, nem esik át az SPA-fallbackre — különben
 `index.html` jönne 200-zal, ami a kliensen JSON-parse hibaként jelentkezne.
+
+## Miért egy közös pillanatkép
+
+A felület nem külön kéri a markereket és a típusokat. Két külön lekérés közé **beeshet a másik
+telefon módosítása**: a marker még hivatkozna egy típusra, amit a másik válasz már nem tartalmaz,
+és a szegmens név és szín nélkül maradna a következő lekérdezésig. A `/state` egyetlen olvasási
+tranzakcióban adja mindkettőt, így ez kizárt — mellékhaszonként a 30 másodpercenkénti lekérdezés
+fele annyi kérés a telefonnak.
+
+A `/markers` és az `/activities` végpont megmarad; a szervertesztek és a kézi hibakeresés ezeken
+mennek.
 
 ## A sorrend-invariánst a szerver őrzi
 

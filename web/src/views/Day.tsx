@@ -166,6 +166,9 @@ export function Day({
     setDrag({ ...drag, at: next });
   }
 
+  const undoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => void (undoTimer.current && clearTimeout(undoTimer.current)), []);
+
   async function onHandleUp() {
     if (!drag) return;
     const d = drag;
@@ -183,7 +186,10 @@ export function Day({
     const saved = await updateMarker(d.id, { at: d.at });
     if (!saved) return;
     setUndo({ id: d.id, at: d.origAt });
-    setTimeout(() => setUndo((u) => (u?.id === d.id ? null : u)), 6000);
+    // Az ELŐZŐ időzítőt le kell állítani: ugyanazt a határt hat másodpercen
+    // belül kétszer elhúzva a régi lejárata a friss visszavonást oltaná ki.
+    if (undoTimer.current) clearTimeout(undoTimer.current);
+    undoTimer.current = setTimeout(() => setUndo(null), 6000);
   }
 
   /**

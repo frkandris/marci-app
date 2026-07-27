@@ -128,10 +128,12 @@ export async function refresh(days = state.daysLoaded) {
   set({ loading: true, daysLoaded: Math.max(days, state.daysLoaded) });
   try {
     const [from, to] = window_(days);
-    const [markers, activities] = await Promise.all([
-      api<Marker[]>(`/markers?from=${from}&to=${to}`),
-      api<Activity[]>('/activities'),
-    ]);
+    // EGY kérés, EGY pillanatkép. Két külön lekérés közé beeshetne a másik
+    // telefon módosítása, és a marker olyan típusra hivatkozna, amit a másik
+    // válasz már nem tartalmaz — a szegmens név és szín nélkül maradna.
+    const { markers, activities } = await api<{ markers: Marker[]; activities: Activity[] }>(
+      `/state?from=${from}&to=${to}`,
+    );
     if (gen !== refreshGen) {
       // Csak akkor pótolunk, ha egyedül futunk — különben egy újabb lekérés
       // tett elavulttá, és az úgyis ír állapotot.

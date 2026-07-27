@@ -117,3 +117,26 @@ test('a jovobe nem lehet rogziteni, de a siketo telefonora belefer', async () =>
   }));
   assert.equal(patched.status, 400, 'a modositas sem vihet a jovobe');
 });
+
+test('a /state EGY pillanatkepbol adja a markereket es a tipusokat', async () => {
+  const app = await load({ SHARED_TOKEN: '' });
+  const now = Date.now();
+  await app.fetch(new Request('http://x/api/markers', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ at: now - 3600_000, activityId: 'furdes' }),
+  }));
+
+  const res = await app.fetch(new Request(`http://x/api/state?from=${now - 7200_000}&to=${now}`));
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.ok(Array.isArray(body.markers) && Array.isArray(body.activities));
+  assert.equal(body.markers.length, 1);
+  // A lenyeg: minden marker tipusa MEGTALALHATO ugyanabban a valaszban.
+  const ids = new Set(body.activities.map((a) => a.id));
+  for (const m of body.markers)
+    assert.ok(m.activityId === '__none__' || ids.has(m.activityId), `arva: ${m.activityId}`);
+
+  const bad = await app.fetch(new Request('http://x/api/state?from=nem-szam&to=1'));
+  assert.equal(bad.status, 400);
+});
