@@ -55,10 +55,19 @@ const authFetch = (path: string, init?: RequestInit) =>
     },
   });
 
+/** A token cseréjekor lép. Ez választja el a régi választ az újtól. */
+let tokenGen = 0;
+
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
+  const gen = tokenGen;
   const res = await authFetch(path, init);
   if (res.status === 401) {
-    set({ needsToken: true, ready: true });
+    // Csak akkor tereljük a jelszókapuhoz, ha a válasz még az AKTUÁLIS
+    // tokenhez tartozik. Induláskor több kérés megy egyszerre; ha az egyik
+    // 401-et hoz, a felhasználó beírja a jelszót, és utána fut be a testvér
+    // kérés régi 401-e, az visszarántaná a kaput — ahonnan nincs kiút, mert
+    // a friss, hitelesített lekérés nem törli a jelzőt.
+    if (gen === tokenGen) set({ needsToken: true, ready: true });
     throw new Error('unauthorized');
   }
   if (!res.ok) {
@@ -164,13 +173,16 @@ export async function ensureDayLoaded(key: string) {
 // A végpontok visszaadják a mentett sort, ezt írjuk vissza az állapotba.
 // Így nincs teljes újratöltés minden húzás után.
 
-const upsertLocal = (row: Marker) =>
+/** A mentett sorral tér vissza: a hívók ebből tudják, hogy SIKERÜLT. */
+const upsertLocal = (row: Marker) => {
   set({
     markers: state.markers.some((m) => m.id === row.id)
       ? state.markers.map((m) => (m.id === row.id ? row : m))
       : [...state.markers, row],
     error: null,
   });
+  return row;
+};
 
 /**
  * Ugyanarra a markerre vonatkozó műveletek SOROSÍTÁSA.
@@ -350,6 +362,7 @@ export const reorderActivities = (ids: string[]) =>
 
 /** A megosztott jelszó beállítása. Lásd wiki/decisions/2026-07-27-nincs-hitelesites.md. */
 export function setToken(t: string) {
+  tokenGen++;
   token = t.trim();
   localStorage.setItem(TOKEN_KEY, token);
   set({ needsToken: false, error: null });

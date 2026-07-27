@@ -8,7 +8,7 @@ import { test } from 'node:test';
 interface Call {
   path: string;
   body: unknown;
-  resolve: (v: unknown) => void;
+  resolve: (v: unknown, status?: number) => void;
 }
 
 /** Friss store-példány minden teszthez, felügyelt fetch-csel. */
@@ -26,8 +26,12 @@ async function harness() {
       calls.push({
         path: String(input),
         body: init?.body ? JSON.parse(String(init.body)) : null,
-        resolve: (v) =>
-          res(new Response(v === null ? null : JSON.stringify(v), { status: v === null ? 204 : 200 })),
+        resolve: (v, status) =>
+          res(
+            new Response(v === null || v === undefined ? null : JSON.stringify(v), {
+              status: status ?? (v === null ? 204 : 200),
+            }),
+          ),
       });
     });
   const store = await import(`../src/store.ts?t=${Math.random()}`);
@@ -77,4 +81,38 @@ test('egy elbukott keres nem akasztja meg a sorban mogotte allot', async () => {
   assert.ok(calls.length >= 2, 'a következő elindult');
   calls[calls.length - 1].resolve({ id: 'm1', at: 2, activityId: '__none__', note: null });
   await second;
+});
+
+test('a sikeres modositas a MENTETT sorral ter vissza', async () => {
+  // A hívó ebből tudja, hogy felajánlhatja a visszavonást. Ha `undefined`-ot
+  // kapna, a sikeres húzás után sosem jelenne meg a "Visszavonás".
+  const { calls, store } = await harness();
+  const p = store.updateMarker('m1', { at: 5 });
+  await new Promise((r) => setTimeout(r, 0));
+  calls[0].resolve({ id: 'm1', at: 5, activityId: '__none__', note: null });
+  const saved = await p;
+  assert.ok(saved, 'nem null és nem undefined');
+  assert.equal(saved.at, 5);
+});
+
+test('egy elavult 401 nem rantja vissza a jelszokaput', async () => {
+  const { calls, store } = await harness();
+  const p = store.updateMarker('m1', { at: 5 });
+  await new Promise((r) => setTimeout(r, 0));
+
+  // A felhasználó közben beírja a jelszót...
+  store.setToken('titok');
+  assert.equal(store.getState().needsToken, false);
+
+  // ...és csak EZUTÁN fut be a régi kérés 401-e.
+  calls[0].resolve({ error: 'unauthorized' }, 401);
+  await p;
+  assert.equal(store.getState().needsToken, false, 'a kapu nem jött vissza');
+
+  // Az új tokennel érkező 401 viszont igenis kapuhoz terel.
+  const p2 = store.updateMarker('m2', { at: 6 });
+  await new Promise((r) => setTimeout(r, 0));
+  calls[calls.length - 1].resolve({ error: 'unauthorized' }, 401);
+  await p2;
+  assert.equal(store.getState().needsToken, true);
 });
