@@ -1,5 +1,4 @@
 import { useMemo, useState } from 'react';
-import { Button } from 'konsta/react';
 import { useStore } from '../App';
 import { loadMoreDays } from '../store';
 import {
@@ -75,12 +74,10 @@ export function Overview({ onOpenDay }: { onOpenDay: (key: string) => void }) {
             </div>
           );
         })}
-      </div>
 
-      <div className="more">
-        <Button rounded outline onClick={() => void loadMoreDays()} disabled={loading}>
+        <button className="more" onClick={() => void loadMoreDays()} disabled={loading}>
           {loading ? 'Betöltés…' : 'Korábbi napok'}
-        </Button>
+        </button>
       </div>
 
       <div className="legend">

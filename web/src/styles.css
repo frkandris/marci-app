@@ -165,7 +165,18 @@ button { cursor: pointer; }
 }
 
 /* A napsáv: a nap egyetlen szalagon. Ez az app szignatúrája. */
-.daystrip { display: block; width: 100%; background: none; border: 0; padding: 4px 0 2px; flex: none; }
+.daystrip { padding: 4px 0 2px; flex: none; }
+/* Vízszintesen görgethető: a nap ráközelítve fér ki, és oldalra húzva
+   mozoghatunk az időben. */
+.daystrip__scroll {
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.daystrip__scroll::-webkit-scrollbar { display: none; }
+.daystrip__inner { position: relative; }
 .daystrip__track {
   position: relative;
   height: 26px;
@@ -183,15 +194,15 @@ button { cursor: pointer; }
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--bg) 60%, transparent);
 }
 .daystrip__axis {
-  display: flex;
-  justify-content: space-between;
+  position: relative;
+  height: 14px;
+  margin-top: 4px;
   font-size: 9.5px;
   font-weight: 600;
-  letter-spacing: 0.08em;
   color: var(--text-dim);
   font-variant-numeric: tabular-nums;
-  margin-top: 5px;
 }
+.daystrip__axis span { position: absolute; transform: translateX(-50%); }
 
 .capture__head {
   display: flex;
@@ -359,22 +370,47 @@ button { cursor: pointer; }
 
 /* --- Többnapos áttekintés ---------------------------------------------- */
 
-.overview { padding: 14px 16px 28px; }
+/* Egyszerre 7 nap fér ki, a többi görgetve érhető el. A jelen felül, a múlt
+   lefelé. A sormagasság a rendelkezésre álló helyből számolódik, hogy minden
+   sor PONTOSAN egyforma legyen. */
+.overview {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 14px 16px 16px;
+}
 .overview__axis {
   display: flex;
   justify-content: space-between;
-  margin-left: 44px;
+  flex: none;
+  margin-left: 60px;
   font-size: 9.5px;
   font-weight: 600;
   letter-spacing: 0.06em;
   color: var(--text-dim);
   font-variant-numeric: tabular-nums;
 }
-.overview__rows { display: flex; flex-direction: column; gap: 3px; margin-top: 6px; }
-.row { display: flex; align-items: center; gap: 6px; }
+.overview__rows {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 6px;
+}
+.row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  /* 7 sor + 6 rés tölti ki a magasságot -> minden sor azonos. */
+  flex: 0 0 calc((100% - 36px) / 7);
+}
 .row__label {
-  width: 38px;
+  width: 54px;
   flex: none;
+  white-space: nowrap;
   background: none;
   border: 0;
   padding: 0;
@@ -387,7 +423,8 @@ button { cursor: pointer; }
 .row__track {
   position: relative;
   flex: 1;
-  height: 19px;
+  height: 100%;
+  min-height: 18px;
   border-radius: 5px;
   background: var(--surface-2);
   overflow: hidden;
@@ -396,7 +433,8 @@ button { cursor: pointer; }
 
 .more {
   width: 100%;
-  margin-top: 16px;
+  flex: none;
+  margin-top: 10px;
   padding: 11px;
   border: 1px solid var(--line);
   border-radius: var(--r);
@@ -413,8 +451,9 @@ button { cursor: pointer; }
 .legend {
   display: flex;
   flex-wrap: wrap;
+  flex: none;
   gap: 5px 14px;
-  margin-top: 18px;
+  margin-top: 14px;
   font-size: 11px;
   color: var(--text-dim);
 }

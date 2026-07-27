@@ -31,6 +31,8 @@ const UNDO_MS = 7000;
 /** A napsáv nem a teljes logikai napot mutatja: 06:00 és éjfél között sűrűbb
  *  és olvashatóbb, mert a hajnali órákban úgysem történik semmi. */
 const STRIP_FROM_H = 6;
+/** Ráközelített skála: 18 óra így a képernyő ~2x-ét teszi ki, tehát görgethető. */
+const STRIP_PX_PER_H = 44;
 
 /**
  * A főképernyő. A cél: a telefon előkapásától a rögzítésig egy koppintás és
@@ -42,6 +44,8 @@ export function Capture({ onOpenDay }: { onOpenDay: (key: string) => void }) {
   const [now, setNow] = useState(Date.now());
   const [undo, setUndo] = useState<{ id: string; label: string } | null>(null);
   const [draft, setDraft] = useState<{ label: string; icon: string; color: string } | null>(null);
+  const stripRef = useRef<HTMLDivElement>(null);
+  const tapStart = useRef<{ x: number; scroll: number } | null>(null);
   const undoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Másodpercenként, nem requestAnimationFrame-mel: háttérben az iOS lassítja
@@ -58,6 +62,16 @@ export function Capture({ onOpenDay }: { onOpenDay: (key: string) => void }) {
 
   useEffect(() => () => void (undoTimer.current && clearTimeout(undoTimer.current)), []);
 
+  // A sáv a jelen pillanatra álljon be — különben a nap elején kezdene, ami
+  // este a leghasznosabb részt kitolná a képernyőről.
+  useEffect(() => {
+    const el = stripRef.current;
+    if (!el) return;
+    el.scrollLeft = Math.max(0, (nowPct / 100) * stripW - el.clientWidth * 0.62);
+    // Csak induláskor pozicionálunk; utána a felhasználó görgetése az úr.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const live = liveActivities(activities);
   // A futó tevékenység a TELJES listából keresendő ki: ha közben archiválták,
   // a marker attól még fut, és meg kell nevezni. A `live` csak a gombokhoz kell.
@@ -71,6 +85,12 @@ export function Capture({ onOpenDay }: { onOpenDay: (key: string) => void }) {
   const to = dayStartMs(shiftDayKey(today, 1), 0); // éjfél
   const segments = segmentsFor(markers, from, to, now);
   const nowPct = ((Math.min(Math.max(now, from), to) - from) / (to - from)) * 100;
+  const stripHours = (to - from) / 3600_000;
+  const stripW = stripHours * STRIP_PX_PER_H;
+  const ticks = Array.from({ length: Math.floor(stripHours / 2) + 1 }, (_, i) => {
+    const h = STRIP_FROM_H + i * 2;
+    return { h: h % 24, pct: ((i * 2) / stripHours) * 100 };
+  });
   const colorOf = (id: string) => activities.find((a) => a.id === id)?.color ?? '#8b93a5';
 
   async function record(activityId: string, label: string) {
@@ -131,32 +151,48 @@ export function Capture({ onOpenDay }: { onOpenDay: (key: string) => void }) {
 
       {stuck && <p className="current__warn">Több mint 12 órája fut.</p>}
 
-      <button className="daystrip" onClick={() => onOpenDay(today)} aria-label="Mai nap megnyitása">
-        <div className="daystrip__track">
-          {segments.map((s) => (
-            <div
-              key={s.markerId}
-              className="daystrip__seg"
-              style={{
-                left: `${((s.start - from) / (to - from)) * 100}%`,
-                width: `max(2px, ${((s.end - s.start) / (to - from)) * 100}%)`,
-                background: colorOf(s.activityId),
-              }}
-            />
-          ))}
-          {now >= from && now <= to && (
-            <div className="daystrip__now" style={{ left: `${nowPct}%` }} />
-          )}
+      <div className="daystrip">
+        <div className="daystrip__scroll" ref={stripRef}
+          onPointerDown={(e) => {
+            tapStart.current = { x: e.clientX, scroll: stripRef.current?.scrollLeft ?? 0 };
+          }}
+          onPointerUp={(e) => {
+            // Koppintás vs. görgetés: csak elmozdulás nélküli érintés navigál.
+            const t = tapStart.current;
+            tapStart.current = null;
+            if (!t) return;
+            const moved = Math.abs(e.clientX - t.x) > 8 ||
+              Math.abs((stripRef.current?.scrollLeft ?? 0) - t.scroll) > 4;
+            if (!moved) onOpenDay(today);
+          }}
+        >
+          <div className="daystrip__inner" style={{ width: stripW }}>
+            <div className="daystrip__track">
+              {segments.map((sg) => (
+                <div
+                  key={sg.markerId}
+                  className="daystrip__seg"
+                  style={{
+                    left: `${((sg.start - from) / (to - from)) * 100}%`,
+                    width: `max(2px, ${((sg.end - sg.start) / (to - from)) * 100}%)`,
+                    background: colorOf(sg.activityId),
+                  }}
+                />
+              ))}
+              {now >= from && now <= to && (
+                <div className="daystrip__now" style={{ left: `${nowPct}%` }} />
+              )}
+            </div>
+            <div className="daystrip__axis">
+              {ticks.map((t) => (
+                <span key={t.h} style={{ left: `${t.pct}%` }}>
+                  {String(t.h).padStart(2, '0')}
+                </span>
+              ))}
+            </div>
+          </div>
         </div>
-        <div className="daystrip__axis">
-          <span>06</span>
-          <span>10</span>
-          <span>14</span>
-          <span>18</span>
-          <span>22</span>
-          <span>24</span>
-        </div>
-      </button>
+      </div>
 
       <div className="grid">
         {live.map((a) => (
