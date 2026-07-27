@@ -93,3 +93,27 @@ test('a PUT csak MEGLEVO tevekenyseget modosit, nem hoz letre ujat', async () =>
   }));
   assert.equal(res.status, 404);
 });
+
+test('a jovobe nem lehet rogziteni, de a siketo telefonora belefer', async () => {
+  const app = await load({ SHARED_TOKEN: '' });
+  const post = (at) =>
+    app.fetch(new Request('http://x/api/markers', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ at, activityId: '__none__' }),
+    }));
+
+  assert.equal((await post(Date.now() + 6 * 3600_000)).status, 400, 'holnap reggel: nem');
+  // A ket telefon oraja nem a szerveret koveti. Szigoru ellenorzessel egy par
+  // masodperccel sieto keszulek MINDEN rogzitest elbukna.
+  const ok = await post(Date.now() + 30_000);
+  assert.equal(ok.status, 201, 'fel perc oraelteres belefer');
+
+  const id = (await ok.json()).id;
+  const patched = await app.fetch(new Request(`http://x/api/markers/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ at: Date.now() + 6 * 3600_000 }),
+  }));
+  assert.equal(patched.status, 400, 'a modositas sem vihet a jovobe');
+});

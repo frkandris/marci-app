@@ -137,10 +137,25 @@ api.get('/markers', (c) => {
   return c.json(listMarkers(db, from, to));
 });
 
+/**
+ * A jövőbe nem lehet rögzíteni: a felület sem engedi, és egy jövőbeli marker
+ * a saját idejének elértével magától „futóvá" válna — felhasználói művelet
+ * nélkül.
+ *
+ * A TŰRÉS viszont nem elhagyható. A két telefon órája nem a szerverét
+ * követi; ha szigorúan `at > Date.now()`-t utasítanánk el, egy pár
+ * másodperccel siető készülék MINDEN rögzítést elbukna. Ez sokkal rosszabb
+ * hibamód, mint amit ez az ellenőrzés megelőz — az 5 perc bőven fedi a valós
+ * óraeltérést, de a véletlen „holnap 8-ra" típusú beírást már kiszűri.
+ */
+const CLOCK_SKEW_MS = 5 * 60_000;
+const inFuture = (at) => at > Date.now() + CLOCK_SKEW_MS;
+
 api.post('/markers', async (c) => {
   const b = await json(c);
   if (!b) return c.json({ error: 'bad json' }, 400);
   if (!Number.isFinite(b.at)) return c.json({ error: 'at' }, 400);
+  if (inFuture(b.at)) return c.json({ error: 'a jövőbe nem lehet rögzíteni' }, 400);
   if (typeof b.activityId !== 'string' || !b.activityId)
     return c.json({ error: 'activityId' }, 400);
   // Árva marker megelőzése: a másik telefon közben véglegesen törölhette a
@@ -154,6 +169,8 @@ api.patch('/markers/:id', async (c) => {
   const b = await json(c);
   if (!b) return c.json({ error: 'bad json' }, 400);
   if (b.at !== undefined && !Number.isFinite(b.at)) return c.json({ error: 'at' }, 400);
+  if (b.at !== undefined && inFuture(b.at))
+    return c.json({ error: 'a jövőbe nem lehet rögzíteni' }, 400);
   if (b.activityId !== undefined && (typeof b.activityId !== 'string' || !b.activityId))
     return c.json({ error: 'activityId' }, 400);
   if (b.activityId !== undefined && !activityExists(db, b.activityId))
