@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from 'react';
+import { Block, Button, Segmented, SegmentedButton, Sheet, Toast } from 'konsta/react';
 import { Icon } from '../icons';
 import { useStore } from '../App';
 import { deleteMarker, updateMarker } from '../store';
@@ -114,15 +115,13 @@ export function Day({
       </header>
 
       <div className="day__zoom">
-        {[32, 64, 128].map((p) => (
-          <button
-            key={p}
-            className={pxPerHour === p ? 'is-active' : ''}
-            onClick={() => setPxPerHour(p)}
-          >
-            {p === 32 ? 'Teljes nap' : p === 64 ? 'Normál' : 'Közeli'}
-          </button>
-        ))}
+        <Segmented strong>
+          {([32, 64, 128] as const).map((p) => (
+            <SegmentedButton key={p} active={pxPerHour === p} onClick={() => setPxPerHour(p)}>
+              {p === 32 ? 'Teljes nap' : p === 64 ? 'Normál' : 'Közeli'}
+            </SegmentedButton>
+          ))}
+        </Segmented>
       </div>
 
       <div className="day__scroll">
@@ -196,23 +195,24 @@ export function Day({
         <p className="empty">Ezen a napon nincs rögzítés.</p>
       )}
 
-      {undo && (
-        <div className="toast">
-          Időpont módosítva.
-          <button
-            onClick={() => {
-              void updateMarker(undo.id, { at: undo.at });
-              setUndo(null);
-            }}
-          >
+      <Toast
+        opened={!!undo}
+        className="marci-toast"
+        button={
+          <Button rounded clear inline onClick={() => {
+            if (undo) void updateMarker(undo.id, { at: undo.at });
+            setUndo(null);
+          }}>
             Visszavonás
-          </button>
-        </div>
-      )}
+          </Button>
+        }
+      >
+        <span>Időpont módosítva</span>
+      </Toast>
 
-      {sheetMarker && (
-        <div className="sheet-backdrop" onClick={() => setSheet(null)}>
-          <div className="sheet" onClick={(e) => e.stopPropagation()}>
+      <Sheet opened={!!sheetMarker} onBackdropClick={() => setSheet(null)} className="marci-sheet">
+        {sheetMarker && (
+          <Block>
             <h3>{fmtTime(sheetMarker.at)}</h3>
             <div className="sheet__grid">
               {live.map((a) => (
@@ -240,21 +240,16 @@ export function Day({
                 Vége
               </button>
             </div>
-            <div className="sheet__actions">
-              <button
-                className="danger"
-                onClick={() => {
-                  void deleteMarker(sheetMarker.id);
-                  setSheet(null);
-                }}
-              >
+            <div className="sheet__row">
+              <Button rounded outline colors={{ textIos: 'text-red-500', outlineBorderIos: 'border-red-500' }}
+                onClick={() => { void deleteMarker(sheetMarker.id); setSheet(null); }}>
                 Törlés
-              </button>
-              <button onClick={() => setSheet(null)}>Kész</button>
+              </Button>
+              <Button rounded clear onClick={() => setSheet(null)}>Kész</Button>
             </div>
-          </div>
-        </div>
-      )}
+          </Block>
+        )}
+      </Sheet>
     </div>
   );
 }

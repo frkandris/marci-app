@@ -17,6 +17,14 @@ const updateSW = registerSW({
   },
 });
 
+// A Konsta a `.dark` OSZTÁLYRA szűr (@custom-variant dark), nem a
+// prefers-color-scheme médiaszabályra. Ezért kézzel tartjuk szinkronban a
+// rendszerbeállítással — élőben is, ha a felhasználó menet közben vált.
+const darkQuery = matchMedia('(prefers-color-scheme: dark)');
+const applyTheme = () => document.documentElement.classList.toggle('dark', darkQuery.matches);
+applyTheme();
+darkQuery.addEventListener('change', applyTheme);
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <App />

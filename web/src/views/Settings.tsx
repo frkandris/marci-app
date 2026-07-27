@@ -1,4 +1,15 @@
-import { useRef, useState } from 'react';
+import { useState } from 'react';
+import {
+  Actions,
+  ActionsButton,
+  ActionsGroup,
+  ActionsLabel,
+  Block,
+  Button,
+  List,
+  ListItem,
+  Sheet,
+} from 'konsta/react';
 import { useStore } from '../App';
 import {
   archiveActivity,
@@ -15,6 +26,9 @@ const PRESETS = [
   '#DE8A2C', '#8AA82E', '#3FA36E', '#2A9CBE',
 ];
 
+// A tevékenységekhez választható ikonok — a négy fülikon nem tartozik ide.
+const PICKABLE = ICON_NAMES.filter((n) => !['record', 'list', 'grid', 'sliders'].includes(n));
+
 const slug = (s: string) =>
   s
     .toLowerCase()
@@ -30,6 +44,12 @@ interface Drag {
   rowH: number;
 }
 
+const move = <T,>(arr: T[], from: number, to: number): T[] => {
+  const out = [...arr];
+  out.splice(to, 0, ...out.splice(from, 1));
+  return out;
+};
+
 export function Settings() {
   const { activities } = useStore();
   const live = liveActivities(activities);
@@ -39,22 +59,18 @@ export function Settings() {
   const [isNew, setIsNew] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<{ a: Activity; usage: number } | null>(null);
   const [drag, setDrag] = useState<Drag | null>(null);
-  const listRef = useRef<HTMLUListElement>(null);
 
   // Húzás közben a lista már a leendő sorrendben látszik — enélkül vakon húzol.
   const order = drag ? move(live, drag.from, drag.to) : live;
 
-  function move<T>(arr: T[], from: number, to: number): T[] {
-    const out = [...arr];
-    out.splice(to, 0, ...out.splice(from, 1));
-    return out;
-  }
-
   function onGripDown(e: React.PointerEvent, index: number) {
     e.preventDefault();
-    (e.target as HTMLElement).setPointerCapture(e.pointerId);
-    const rows = listRef.current?.children;
-    const rowH = rows?.[0] ? (rows[0] as HTMLElement).offsetHeight : 56;
+    e.stopPropagation();
+    const el = e.currentTarget as HTMLElement;
+    el.setPointerCapture(e.pointerId);
+    // A sormagasságot a saját sorából olvassuk, nem a lista gyerekeiből: a
+    // Konsta List belső szerkezete nem garantált.
+    const rowH = el.closest('li')?.offsetHeight ?? 56;
     setDrag({ from: index, to: index, startY: e.clientY, rowH });
   }
 
@@ -100,76 +116,78 @@ export function Settings() {
     else setEditing(null);
   }
 
+  const grip = (index: number) => (
+    <span
+      className="grip"
+      onPointerDown={(e) => onGripDown(e, index)}
+      onPointerMove={onGripMove}
+      onPointerUp={onGripUp}
+      onPointerCancel={() => setDrag(null)}
+      onClick={(e) => e.stopPropagation()}
+      role="button"
+      tabIndex={0}
+      aria-label="Áthelyezés"
+    >
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+        <circle cx="6" cy="3" r="1.4" /><circle cx="10" cy="3" r="1.4" />
+        <circle cx="6" cy="8" r="1.4" /><circle cx="10" cy="8" r="1.4" />
+        <circle cx="6" cy="13" r="1.4" /><circle cx="10" cy="13" r="1.4" />
+      </svg>
+    </span>
+  );
+
+  const chip = (a: Activity, size = 17) => (
+    <span className="chipicon" style={{ background: a.color }}>
+      <Icon name={a.icon} size={size} />
+    </span>
+  );
+
   return (
     <div className="settings">
-      <ul className="actlist" ref={listRef}>
+      <List strongIos insetIos className="marci-list">
         {order.map((a) => {
           const i = live.indexOf(a);
-          const dragging = drag && live[drag.from].id === a.id;
           return (
-            <li key={a.id} className={dragging ? 'is-dragging' : ''}>
-              <span
-                className="grip"
-                onPointerDown={(e) => onGripDown(e, i)}
-                onPointerMove={onGripMove}
-                onPointerUp={onGripUp}
-                onPointerCancel={() => setDrag(null)}
-                role="button"
-                tabIndex={0}
-                aria-label={`${a.label} áthelyezése`}
-              >
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
-                  <circle cx="6" cy="3" r="1.4" /><circle cx="10" cy="3" r="1.4" />
-                  <circle cx="6" cy="8" r="1.4" /><circle cx="10" cy="8" r="1.4" />
-                  <circle cx="6" cy="13" r="1.4" /><circle cx="10" cy="13" r="1.4" />
-                </svg>
-              </span>
-              <button className="actlist__main" onClick={() => (setIsNew(false), setEditing(a))}>
-                <span className="chipicon" style={{ background: a.color }}>
-                  <Icon name={a.icon} size={17} />
-                </span>
-                <span className="actlist__text">
-                  <span className="actlist__name">{a.label}</span>
-                  <span className="actlist__meta">{a.usageCount ?? 0} esemény</span>
-                </span>
-              </button>
-            </li>
+            <ListItem
+              key={a.id}
+              className={drag && live[drag.from].id === a.id ? 'is-dragging' : ''}
+              media={chip(a)}
+              title={a.label}
+              subtitle={`${a.usageCount ?? 0} esemény`}
+              after={grip(i)}
+              onClick={() => (setIsNew(false), setEditing(a))}
+            />
           );
         })}
-      </ul>
+      </List>
 
-      <button className="wide" onClick={startNew}>
-        Új tevékenység
-      </button>
+      <Block className="!mt-2">
+        <Button rounded outline onClick={startNew}>
+          Új tevékenység
+        </Button>
+      </Block>
 
       {archived.length > 0 && (
-        <>
-          <h2 className="eyebrow sect">Archivált</h2>
-          <ul className="actlist actlist--muted">
-            {archived.map((a) => (
-              <li key={a.id}>
-                <span className="grip grip--off" aria-hidden="true" />
-                <span className="actlist__main">
-                  <span className="chipicon" style={{ background: a.color }}>
-                    <Icon name={a.icon} size={17} />
-                  </span>
-                  <span className="actlist__text">
-                    <span className="actlist__name">{a.label}</span>
-                    <span className="actlist__meta">{a.usageCount ?? 0} esemény</span>
-                  </span>
-                </span>
+        <List strongIos insetIos className="marci-list opacity-60">
+          {archived.map((a) => (
+            <ListItem
+              key={a.id}
+              media={chip(a)}
+              title={a.label}
+              subtitle={`${a.usageCount ?? 0} esemény`}
+              after={
                 <button className="link" onClick={() => void unarchiveActivity(a)}>
                   Vissza
                 </button>
-              </li>
-            ))}
-          </ul>
-        </>
+              }
+            />
+          ))}
+        </List>
       )}
 
-      {editing && (
-        <div className="sheet-backdrop" onClick={() => setEditing(null)}>
-          <div className="sheet" onClick={(e) => e.stopPropagation()}>
+      <Sheet opened={!!editing} onBackdropClick={() => setEditing(null)} className="marci-sheet">
+        {editing && (
+          <Block>
             <div className="preview" style={{ '--c': editing.color } as React.CSSProperties}>
               <span className="chipicon chipicon--lg" style={{ background: editing.color }}>
                 <Icon name={editing.icon} size={22} />
@@ -180,13 +198,12 @@ export function Settings() {
             <input
               className="bigfield"
               value={editing.label}
-              onChange={(e) => setEditing({ ...editing, label: e.target.value })}
               placeholder="Név"
-              autoFocus={isNew}
+              onChange={(e) => setEditing({ ...editing, label: e.target.value })}
             />
 
             <div className="picker">
-              {ICON_NAMES.map((n) => (
+              {PICKABLE.map((n) => (
                 <button
                   key={n}
                   className={`pickbtn ${editing.icon === n ? 'is-active' : ''}`}
@@ -217,57 +234,59 @@ export function Settings() {
               />
             </div>
 
-            <div className="sheet__actions">
-              <button className="primary" onClick={() => void save()} disabled={!editing.label.trim()}>
+            <div className="sheet__row">
+              <Button rounded onClick={() => void save()} disabled={!editing.label.trim()}>
                 Mentés
-              </button>
-              <button onClick={() => setEditing(null)}>Mégse</button>
+              </Button>
+              <Button rounded clear onClick={() => setEditing(null)}>
+                Mégse
+              </Button>
             </div>
 
             {!isNew && (
-              <div className="danger-zone">
-                <button onClick={() => void archiveActivity(editing.id).then(() => setEditing(null))}>
+              <div className="sheet__row sheet__row--danger">
+                <Button rounded outline onClick={() => void archiveActivity(editing.id).then(() => setEditing(null))}>
                   Archiválás
-                </button>
-                <button className="danger" onClick={() => void tryDelete(editing)}>
-                  Végleges törlés
-                </button>
+                </Button>
+                <Button rounded outline colors={{ textIos: 'text-red-500', outlineBorderIos: 'border-red-500' }} onClick={() => void tryDelete(editing)}>
+                  Törlés
+                </Button>
               </div>
             )}
-          </div>
-        </div>
-      )}
+          </Block>
+        )}
+      </Sheet>
 
-      {confirmDelete && (
-        <div className="sheet-backdrop" onClick={() => setConfirmDelete(null)}>
-          <div className="sheet" onClick={(e) => e.stopPropagation()}>
-            <h3>
-              {confirmDelete.usage} esemény is törlődik vele. Nem vonható vissza.
-            </h3>
-            <div className="sheet__actions">
-              <button
-                onClick={() => {
-                  void archiveActivity(confirmDelete.a.id);
-                  setConfirmDelete(null);
-                  setEditing(null);
-                }}
-              >
-                Inkább archiválom
-              </button>
-              <button
-                className="danger"
-                onClick={() => {
-                  void deleteActivityHard(confirmDelete.a.id, true);
-                  setConfirmDelete(null);
-                  setEditing(null);
-                }}
-              >
-                Törlés
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <Actions opened={!!confirmDelete} onBackdropClick={() => setConfirmDelete(null)}>
+        <ActionsGroup>
+          <ActionsLabel>
+            {confirmDelete?.usage} esemény is törlődik vele. Nem vonható vissza.
+          </ActionsLabel>
+          <ActionsButton
+            onClick={() => {
+              if (confirmDelete) void archiveActivity(confirmDelete.a.id);
+              setConfirmDelete(null);
+              setEditing(null);
+            }}
+          >
+            Inkább archiválom
+          </ActionsButton>
+          <ActionsButton
+            bold
+            colors={{ textIos: 'text-red-500' }}
+            onClick={() => {
+              if (confirmDelete) void deleteActivityHard(confirmDelete.a.id, true);
+              setConfirmDelete(null);
+              setEditing(null);
+            }}
+          >
+            Végleges törlés
+          </ActionsButton>
+        </ActionsGroup>
+        <ActionsGroup>
+          <ActionsButton onClick={() => setConfirmDelete(null)}>Mégse</ActionsButton>
+        </ActionsGroup>
+      </Actions>
     </div>
   );
 }

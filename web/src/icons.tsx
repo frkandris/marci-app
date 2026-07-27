@@ -27,6 +27,11 @@ export const ICON_NAMES = [
   'health',
   'star',
   'stop',
+  // Fülikonok — nem választhatók tevékenységhez, de ugyanabból a készletből.
+  'record',
+  'list',
+  'grid',
+  'sliders',
 ] as const;
 
 export type IconName = (typeof ICON_NAMES)[number];
@@ -64,6 +69,14 @@ const PATHS: Record<IconName, string> = {
   star: 'M12 2.5l2.9 5.9 6.5.9-4.7 4.6 1.1 6.5-5.8-3-5.8 3 1.1-6.5L2.6 9.3l6.5-.9L12 2.5z',
   // stop
   stop: 'M6 5h12a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z',
+  // felvétel (Most fül)
+  record: 'M12 3a9 9 0 1 1 0 18 9 9 0 0 1 0-18zm0 4.5a4.5 4.5 0 1 0 0 9 4.5 4.5 0 0 0 0-9z',
+  // lista (Nap fül)
+  list: 'M4 5.5h2.5v2.5H4V5.5zm4.5 0H20a1 1 0 0 1 0 2H8.5a1 1 0 0 1 0-2zM4 10.8h2.5v2.5H4v-2.5zm4.5 0H20a1 1 0 0 1 0 2H8.5a1 1 0 0 1 0-2zM4 16h2.5v2.5H4V16zm4.5 0H20a1 1 0 0 1 0 2H8.5a1 1 0 0 1 0-2z',
+  // rács (Napok fül)
+  grid: 'M3 4.5h18a1 1 0 0 1 0 2H3a1 1 0 0 1 0-2zm0 4.5h12a1 1 0 0 1 0 2H3a1 1 0 0 1 0-2zm0 4.5h18a1 1 0 0 1 0 2H3a1 1 0 0 1 0-2zm0 4.5h9a1 1 0 0 1 0 2H3a1 1 0 0 1 0-2z',
+  // szabályzók (Típusok fül)
+  sliders: 'M4 6h8a1 1 0 0 1 0 2H4a1 1 0 0 1 0-2zm12.5-2.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5zM4 16h4a1 1 0 0 1 0 2H4a1 1 0 0 1 0-2zm8.5-2.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5zM17 16h3a1 1 0 0 1 0 2h-3a1 1 0 0 1 0-2zm-5-10h8a1 1 0 0 1 0 2h-8a1 1 0 0 1 0-2z',
 };
 
 const isIconName = (v: unknown): v is IconName =>
