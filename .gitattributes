@@ -1,0 +1,4 @@
+# A wiki changelogja párhuzamosan bővülhet több ágon. A union merge driver mindkét oldal
+# sorait megtartja ütközés helyett — ezért kötelező, hogy minden log-bejegyzés EGY, önmagában
+# értelmes sor legyen. Lásd wiki/CLAUDE.md → "Oldalvázak".
+wiki/log.md merge=union

@@ -1,0 +1,12 @@
+node_modules/
+dist/
+.DS_Store
+*.log
+
+# Lokális fejlesztői adatbázis (élesben: /data/marci.db a Coolify volume-on)
+*.db
+*.db-wal
+*.db-shm
+
+.env
+.env.local
