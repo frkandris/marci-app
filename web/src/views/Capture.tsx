@@ -411,8 +411,12 @@ export function Capture({ onOpenDay }: { onOpenDay: (key: string) => void }) {
           <ActionsButton
             bold
             colors={{ textIos: 'text-red-500' }}
-            onClick={() => {
-              if (confirmDelete) void deleteActivityHard(confirmDelete.id, true);
+            onClick={async () => {
+              if (!confirmDelete) return;
+              // Csak SIKERES törlés után zárunk: hálózati hiba esetén a
+              // felület különben úgy tenne, mintha megtörtént volna.
+              const res = await deleteActivityHard(confirmDelete.id, true);
+              if (res !== 'deleted') return;
               setConfirmDelete(null);
               setDraft(null);
             }}

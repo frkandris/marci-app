@@ -203,8 +203,11 @@ export function Settings() {
           <ActionsButton
             bold
             colors={{ textIos: 'text-red-500' }}
-            onClick={() => {
-              if (confirmDelete) void deleteActivityHard(confirmDelete.a.id, true);
+            onClick={async () => {
+              if (!confirmDelete) return;
+              // Csak SIKERES törlés után zárunk — lásd Capture.
+              const res = await deleteActivityHard(confirmDelete.a.id, true);
+              if (res !== 'deleted') return;
               setConfirmDelete(null);
               setEditing(null);
             }}
