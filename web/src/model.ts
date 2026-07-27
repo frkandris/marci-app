@@ -201,6 +201,43 @@ export function nextOf(all: Marker[], id: string): Marker | null {
   return i >= 0 && i < ms.length - 1 ? ms[i + 1] : null;
 }
 
+/** Felezési idő a használati pontszámban: egy hete használt fele annyit ér. */
+const SCORE_HALFLIFE_DAYS = 7;
+
+/**
+ * Tevékenységenkénti használati pontszám: gyakoriság, frissességgel súlyozva.
+ * Egy exponenciális lecsengés egyszerre fejezi ki a „gyakran" és a „legutóbb"
+ * szempontot — nem kell két külön rendezés.
+ */
+export function usageScores(markers: Marker[], now = Date.now()): Map<string, number> {
+  const out = new Map<string, number>();
+  for (const m of markers) {
+    if (m.activityId === NONE) continue;
+    const ageDays = (now - m.at) / 86_400_000;
+    if (ageDays < 0) continue;
+    const w = Math.pow(0.5, ageDays / SCORE_HALFLIFE_DAYS);
+    out.set(m.activityId, (out.get(m.activityId) ?? 0) + w);
+  }
+  return out;
+}
+
+/**
+ * Használat szerint rendezett tevékenységek. A soha nem használtak a kézi
+ * `sort` sorrendjükben követik őket, hogy egy új típus se essen a lista aljára
+ * véletlenszerűen.
+ */
+export function rankedActivities(
+  activities: Activity[],
+  markers: Marker[],
+  now = Date.now(),
+): Activity[] {
+  const score = usageScores(markers, now);
+  return [...activities].sort((a, b) => {
+    const d = (score.get(b.id) ?? 0) - (score.get(a.id) ?? 0);
+    return d !== 0 ? d : a.sort - b.sort;
+  });
+}
+
 export const SNAP_MS = 5 * 60_000;
 export const snap = (t: number, grid = SNAP_MS) => Math.round(t / grid) * grid;
 

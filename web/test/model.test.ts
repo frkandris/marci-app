@@ -10,15 +10,17 @@ import {
   markersIn,
   nextOf,
   previousOf,
+  rankedActivities,
   runningMarker,
   sameClockPreviousDay,
   segmentsFor,
   shiftDayKey,
   snap,
   toTimeInput,
+  usageScores,
   withTimeOfDay,
 } from '../src/model.ts';
-import type { Marker } from '../src/model.ts';
+import type { Activity, Marker } from '../src/model.ts';
 
 const at = (y: number, mo: number, d: number, h: number, mi = 0) =>
   new Date(y, mo - 1, d, h, mi, 0, 0).getTime();
@@ -233,4 +235,28 @@ test('nextOf a szegmens VÉGÉT meghatározó markert adja', () => {
   ];
   assert.equal(nextOf(markers, 'a')?.id, 'b');
   assert.equal(nextOf(markers, 'b'), null, 'a futó szegmensnek nincs vége-markere');
+});
+
+test('usageScores a frissebb használatot súlyozza erősebben', () => {
+  const now = at(2026, 7, 27, 12);
+  const markers = [
+    // "regi": 14 napja, ketszer -> 2 * 0.25 = 0.5
+    mk('r1', now - 14 * 86400000, 'regi'),
+    mk('r2', now - 14 * 86400000 + 1000, 'regi'),
+    // "uj": ma egyszer -> ~1.0
+    mk('u1', now - 3600000, 'uj'),
+  ];
+  const sc = usageScores(markers, now);
+  assert.ok(sc.get('uj')! > sc.get('regi')!, 'egy mai használat többet ér két kéthetesnél');
+});
+
+test('rankedActivities a soha nem használtakat a kézi sorrendben hagyja', () => {
+  const now = at(2026, 7, 27, 12);
+  const acts: Activity[] = [
+    { id: 'a', label: 'A', color: '#111111', icon: null, sort: 30, archived: false },
+    { id: 'b', label: 'B', color: '#222222', icon: null, sort: 10, archived: false },
+    { id: 'c', label: 'C', color: '#333333', icon: null, sort: 20, archived: false },
+  ];
+  const ranked = rankedActivities(acts, [mk('m', now - 3600000, 'a')], now);
+  assert.deepEqual(ranked.map((x) => x.id), ['a', 'b', 'c'], 'a használt elöl, a többi sort szerint');
 });

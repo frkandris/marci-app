@@ -68,10 +68,31 @@ hamis „most".
 - **Nem mutat hibát hálózati problémánál.** A rögzítés lokálisan sikerült; a szinkron a
   [szinkronizáció](/features/szinkronizacio.md) dolga, és csendben, később megy. A felhasználót nem érdekli
   és nem is tud vele mit kezdeni fürdetés közben.
-- **Nem rendezi át magát dinamikusan.** Kísértő lenne a gombokat használati gyakoriság szerint
-  sorbarendezni, de akkor **elmozdulna a helyük** — és az izommemória többet ér, mint az
-  optimalizált sorrend. A sorrend a [tevékenységtípusok](/features/tevekenysegtipusok.md) `sort`
-  mezőjéből jön, és csak kézzel változik.
+- **Nem kér megerősítést kétszer.** A visszavonás bőven elég.
+
+# Sorrend: használat szerint
+
+> **Ez a döntés 2026-07-27-én megfordult.** Korábban itt az állt, hogy a sorrend fix marad, mert
+> „az izommemória többet ér, mint az optimalizált sorrend". A felhasználó ezt felülbírálta:
+> *„nem érdekel az izommemória, azonnal számolódjon újra"*.
+
+A gombok **használati pontszám szerint** rendeződnek, minden változás után azonnal újraszámolva.
+A pontszám a gyakoriságot és a frissességet **egyetlen számban** fejezi ki:
+
+```
+pontszám(tevékenység) = Σ  0.5 ^ (rögzítés_kora_napokban / 7)
+```
+
+Vagyis egy mai rögzítés 1,0 pontot ér, egy hete 0,5-öt, két hete 0,25-öt. Így nem kell külön
+rendezni „gyakran" és „legutóbb" szerint — a kettő ugyanabból a képletből jön ki.
+
+**Egyetlen koppintás nem feltétlenül mozdít a sorrenden**, és ez helyes: egy 39-szer használt
+tevékenységet nem előz meg egy most rögzített. A sorrend hetek alatt követi, mi változott a
+gyerek rutinjában.
+
+A soha nem használtak a kézi `sort` sorrendjükben követik a többit, hogy egy új típus se essen
+véletlenszerű helyre. A viselkedés a **Beállítások** fülön kikapcsolható; ilyenkor a kézi,
+húzással állított sorrend érvényes.
 
 # Figyelmeztetés a beragadt tevékenységre
 

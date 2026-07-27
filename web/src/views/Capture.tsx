@@ -12,6 +12,7 @@ import {
   fmtTime,
   liveActivities,
   previousOf,
+  rankedActivities,
   runningMarker,
   segmentsFor,
   shiftDayKey,
@@ -43,7 +44,7 @@ const STRIP_PX_PER_H = 44;
  * kétharmadban van. Megerősítő párbeszéd helyett visszavonás.
  */
 export function Capture({ onOpenDay }: { onOpenDay: (key: string) => void }) {
-  const { markers, activities } = useStore();
+  const { markers, activities, rankByUsage } = useStore();
   const [now, setNow] = useState(Date.now());
   const [undo, setUndo] = useState<{ id: string; label: string } | null>(null);
   const [draft, setDraft] = useState<{ label: string; icon: string; color: string } | null>(null);
@@ -75,9 +76,14 @@ export function Capture({ onOpenDay }: { onOpenDay: (key: string) => void }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const live = liveActivities(activities);
+  // Használat szerinti sorrend, AZONNAL újraszámolva: a most rögzített
+  // tevékenység rögtön előrelép. A pontszám a gyakoriságot és a frissességet
+  // együtt fejezi ki (7 napos felezés).
+  const allLive = liveActivities(activities);
+  const live = rankByUsage ? rankedActivities(allLive, markers, now) : allLive;
   // A futó tevékenység a TELJES listából keresendő ki: ha közben archiválták,
   // a marker attól még fut, és meg kell nevezni. A `live` csak a gombokhoz kell.
+  const today = dayKey(now, DAY_START_HOUR);
   const running = runningMarker(markers, now);
   const runningAct = running ? activities.find((a) => a.id === running.activityId) : null;
   const elapsed = running ? now - running.at : 0;
@@ -89,7 +95,6 @@ export function Capture({ onOpenDay }: { onOpenDay: (key: string) => void }) {
   const prevAct = prevMarker ? activities.find((a) => a.id === prevMarker.activityId) : null;
   const canOops = !!running && elapsed < OOPS_WINDOW_MS;
 
-  const today = dayKey(now, DAY_START_HOUR);
   const from = dayStartMs(today, STRIP_FROM_H);
   const to = dayStartMs(shiftDayKey(today, 1), 0); // éjfél
   const segments = segmentsFor(markers, from, to, now);

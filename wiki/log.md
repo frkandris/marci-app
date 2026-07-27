@@ -7,6 +7,10 @@ merge drivert működőképessé és a fájlt grep-elhetővé:
 
 ## 2026-07-27
 
+* **Megfordított döntés**: A gyorsrögzítő gombok **használat szerint** rendeződnek (gyakoriság + frissesség egyetlen, 7 napos felezésű pontszámban), azonnali újraszámolással. A korábbi „fix sorrend az izommemóriáért" indoklást a felhasználó felülbírálta. A Beállítások fülön kikapcsolható.
+* **Létrehozás**: A napi sáv üres részére koppintva új esemény hozható létre az adott időpontban, mint a naptáralkalmazásokban.
+* **Hibajavítás**: A csippentés azért akadozott, mert minden gesztus-frame teljes React-újrarenderelést váltott ki (~45 pozicionált elem). A skála mostantól CSS-változó (`--pxh`), a gesztus alatt egyetlen stílusírás történik, az állapot csak a végén szinkronizálódik.
+
 * **Változás**: A napi idővonalon a „Törlés" mostantól **nem rögzítetté** teszi a szegmenst (`__none__`), nem eldobja a markert. A marker eldobása az ELŐZŐ tevékenységnek tulajdonította volna a sávot — a felhasználó ezt joggal érezte hibának.
 * **Létrehozás**: A szegmens **kezdete és vége** közvetlenül szerkeszthető a lapon. A vég a rákövetkező marker kezdete, ezért azt mozgatja; futó szegmensnél nem szerkeszthető.
 * **Létrehozás**: Napi összesítő a Nap nézet fejlécében, tevékenységenként, hossz szerint rendezve.

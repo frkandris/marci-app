@@ -9,12 +9,14 @@ import {
   List,
   ListItem,
   Sheet,
+  Toggle,
 } from 'konsta/react';
 import { useStore } from '../App';
 import {
   deleteActivityHard,
   reorderActivities,
   saveActivity,
+  setRankByUsage,
 } from '../store';
 import { liveActivities, type Activity } from '../model';
 import { ICON_NAMES, Icon } from '../icons';
@@ -61,7 +63,7 @@ const move = <T,>(arr: T[], from: number, to: number): T[] => {
 };
 
 export function Settings() {
-  const { activities } = useStore();
+  const { activities, rankByUsage } = useStore();
   const live = liveActivities(activities);
   // Az archiválás mint külön fogalom kikerült a felületről; a szerver
   // továbbra is ismeri, ezért a sorrendezésnél nem hagyhatjuk ki a sorait.
@@ -184,6 +186,19 @@ export function Settings() {
           Új tevékenység
         </Button>
       </Block>
+
+      <List strongIos insetIos className="marci-list">
+        <ListItem
+          label
+          title="Használat szerinti sorrend"
+          after={
+            <Toggle
+              checked={rankByUsage}
+              onChange={() => setRankByUsage(!rankByUsage)}
+            />
+          }
+        />
+      </List>
 
       <Sheet opened={!!editing} onBackdropClick={() => setEditing(null)} className="marci-sheet">
         {editing && (
