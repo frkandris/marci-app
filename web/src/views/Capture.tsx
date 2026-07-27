@@ -5,18 +5,23 @@ import { addMarker, deleteMarker } from '../store';
 import {
   DAY_START_HOUR,
   NONE,
-  dayBounds,
   dayKey,
+  dayStartMs,
   fmtClock,
   fmtTime,
   liveActivities,
   runningMarker,
   sameClockPreviousDay,
   segmentsFor,
+  shiftDayKey,
 } from '../model';
 
 const STUCK_MS = 12 * 3600_000;
 const UNDO_MS = 7000;
+
+/** A napsáv nem a teljes logikai napot mutatja: 06:00 és éjfél között sűrűbb
+ *  és olvashatóbb, mert a hajnali órákban úgysem történik semmi. */
+const STRIP_FROM_H = 6;
 
 /**
  * A főképernyő. A cél: a telefon előkapásától a rögzítésig egy koppintás és
@@ -54,8 +59,10 @@ export function Capture({ onOpenDay }: { onOpenDay: (key: string) => void }) {
   const stuck = elapsed > STUCK_MS;
 
   const today = dayKey(now, DAY_START_HOUR);
-  const [from, to] = dayBounds(today);
+  const from = dayStartMs(today, STRIP_FROM_H);
+  const to = dayStartMs(shiftDayKey(today, 1), 0); // éjfél
   const segments = segmentsFor(markers, from, to, now);
+  const nowPct = ((Math.min(Math.max(now, from), to) - from) / (to - from)) * 100;
   const colorOf = (id: string) => activities.find((a) => a.id === id)?.color ?? '#8b93a5';
 
   async function record(activityId: string, label: string) {
@@ -116,14 +123,17 @@ export function Capture({ onOpenDay }: { onOpenDay: (key: string) => void }) {
               }}
             />
           ))}
-          <div className="daystrip__now" style={{ left: `${((now - from) / (to - from)) * 100}%` }} />
+          {now >= from && now <= to && (
+            <div className="daystrip__now" style={{ left: `${nowPct}%` }} />
+          )}
         </div>
         <div className="daystrip__axis">
-          <span>04</span>
+          <span>06</span>
           <span>10</span>
-          <span>16</span>
+          <span>14</span>
+          <span>18</span>
           <span>22</span>
-          <span>04</span>
+          <span>24</span>
         </div>
       </button>
 
