@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Block, Button, Segmented, SegmentedButton, Sheet, Toast } from 'konsta/react';
 import { Icon } from '../icons';
 import { useStore } from '../App';
@@ -41,6 +41,7 @@ export function Day({
   const [sheet, setSheet] = useState<string | null>(null);
   const [undo, setUndo] = useState<{ id: string; at: number } | null>(null);
   const trackRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   const [from, to] = dayBounds(key, DAY_START_HOUR);
   const now = Date.now();
@@ -69,6 +70,21 @@ export function Day({
     }
     return out;
   }, [from, to]);
+
+  // A nap tetejéről indulni haszontalan: hajnali 4-kor sosincs semmi. Oda
+  // tekerünk, ahol épp állunk — vagy a nap első rögzítéséhez, ha múltbeli nap.
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const t = Date.now();
+    const first = segmentsFor(markers, from, to, t)[0]?.start;
+    const target = t >= from && t < to ? t : (first ?? from);
+    const y = ((target - from) / 3600_000) * pxPerHour;
+    el.scrollTop = Math.max(0, y - el.clientHeight * 0.4);
+    // A `markers` szándékosan NEM függőség: csak nézetváltáskor és
+    // nagyításkor tekerünk, különben minden szerkesztés visszaugrana.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key, pxPerHour]);
 
   function onHandleDown(e: React.PointerEvent, id: string, at: number) {
     e.preventDefault();
@@ -124,7 +140,7 @@ export function Day({
         </Segmented>
       </div>
 
-      <div className="day__scroll">
+      <div className="day__scroll" ref={scrollRef}>
         <div className="day__track" ref={trackRef} style={{ height }}>
           {hours.map((h) => (
             <div key={h.t} className="hourline" style={{ top: yOf(h.t) }}>
@@ -213,7 +229,9 @@ export function Day({
       <Sheet opened={!!sheetMarker} onBackdropClick={() => setSheet(null)} className="marci-sheet">
         {sheetMarker && (
           <Block>
-            <h3>{fmtTime(sheetMarker.at)}</h3>
+            <h3>
+              {fmtTime(sheetMarker.at)} — {byId.get(sheetMarker.activityId)?.label ?? 'Vége'}
+            </h3>
             <div className="sheet__grid">
               {live.map((a) => (
                 <button

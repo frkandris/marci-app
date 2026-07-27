@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { Button, Toast } from 'konsta/react';
 import { Icon } from '../icons';
 import { useStore } from '../App';
 import { addMarker, deleteMarker } from '../store';
@@ -181,21 +182,20 @@ export function Capture({ onOpenDay }: { onOpenDay: (key: string) => void }) {
         </button>
       </div>
 
-      {undo && (
-        <div className="toast">
-          <span>
-            <strong>{undo.label}</strong> rögzítve
-          </span>
-          <button
-            onClick={() => {
-              void deleteMarker(undo.id);
-              setUndo(null);
-            }}
-          >
+      <Toast
+        opened={!!undo}
+        className="marci-toast"
+        button={
+          <Button rounded clear inline onClick={() => {
+            if (undo) void deleteMarker(undo.id);
+            setUndo(null);
+          }}>
             Visszavonás
-          </button>
-        </div>
-      )}
+          </Button>
+        }
+      >
+        <span>{undo?.label} rögzítve</span>
+      </Toast>
     </div>
   );
 }

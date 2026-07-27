@@ -16,7 +16,7 @@ const TABS = [
   { key: 'capture', label: 'Most', icon: 'record' },
   { key: 'day', label: 'Nap', icon: 'list' },
   { key: 'overview', label: 'Napok', icon: 'grid' },
-  { key: 'settings', label: 'Típusok', icon: 'sliders' },
+  { key: 'settings', label: 'Beállítások', icon: 'sliders' },
 ] as const;
 
 export function App() {
