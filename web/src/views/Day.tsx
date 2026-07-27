@@ -11,6 +11,7 @@ import {
   dayKey,
   dragBounds,
   fmtDayLong,
+  dailyTotals,
   fmtDuration,
   fmtTime,
   liveActivities,
@@ -59,6 +60,7 @@ export function Day({
   );
 
   const segments = segmentsFor(preview, from, to, now);
+  const totals = useMemo(() => dailyTotals(segments).slice(0, 4), [segments]);
   const handles = markersIn(preview, from, to);
 
   const height = ((to - from) / 3600_000) * pxPerHour;
@@ -78,18 +80,23 @@ export function Day({
     void ensureDayLoaded(key);
   }, [key]);
 
+  // Naponta EGYSZER pozicionálunk. Ha a nap kiesett a betöltött ablakból, a
+  // markerek csak később érkeznek meg — ezért a `markers` is függőség, de a
+  // jelölő megakadályozza, hogy minden szerkesztés visszaugrasson.
+  const scrolledFor = useRef<string | null>(null);
   useEffect(() => {
     const el = scrollRef.current;
-    if (!el) return;
+    if (!el || scrolledFor.current === key) return;
     const t = Date.now();
+    const isToday = t >= from && t < to;
     const first = segmentsFor(markers, from, to, t)[0]?.start;
-    const target = t >= from && t < to ? t : (first ?? from);
-    const y = ((target - from) / 3600_000) * pxPerHour;
-    el.scrollTop = Math.max(0, y - el.clientHeight * 0.4);
-    // A `markers` szándékosan NEM függőség: csak nézetváltáskor és
-    // nagyításkor tekerünk, különben minden szerkesztés visszaugrana.
+    // Múltbeli napnál megvárjuk az adatot, különben 04:00-ra tekernénk.
+    if (!isToday && first === undefined) return;
+    const target = isToday ? t : first!;
+    el.scrollTop = Math.max(0, ((target - from) / 3600_000) * pxPerHour - el.clientHeight * 0.4);
+    scrolledFor.current = key;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key]);
+  }, [key, markers]);
 
   // --- Csippentéses nagyítás ------------------------------------------------
   // A @use-gesture kezeli a mutatók követését, a gesztus kezdetét/végét és a
@@ -178,6 +185,21 @@ export function Day({
           ›
         </button>
       </header>
+
+      {totals.length > 0 && (
+        <div className="totals">
+          {totals.map((t) => {
+            const a = byId.get(t.activityId);
+            return (
+              <span key={t.activityId} className="totals__item">
+                <i style={{ background: a?.color ?? '#8b93a5' }} />
+                {a?.label ?? t.activityId}
+                <b>{fmtDuration(t.ms)}</b>
+              </span>
+            );
+          })}
+        </div>
+      )}
 
       <div className="day__scroll" ref={scrollRef}>
         <div className="day__track" ref={trackRef} style={{ height }}>

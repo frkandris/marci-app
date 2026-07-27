@@ -79,7 +79,16 @@ function window_(days = state.daysLoaded): [number, number] {
   return [dayBounds(shiftDayKey(today, -(days - 1)))[0], dayBounds(shiftDayKey(today, 1))[1]];
 }
 
+/**
+ * Generációszámláló a versenyhelyzet ellen: ha a poll és egy loadMoreDays
+ * átfedi egymást, a KÉSŐBB BEFEJEZŐDŐ írná felül a másikat — akkor is, ha ő
+ * indult előbb. Egy lassú 45 napos poll így eldobhatna egy kész 75 naposat,
+ * vagy eltüntethetne egy épp mentett markert.
+ */
+let refreshGen = 0;
+
 export async function refresh(days = state.daysLoaded) {
+  const gen = ++refreshGen;
   set({ loading: true });
   try {
     const [from, to] = window_(days);
@@ -87,14 +96,16 @@ export async function refresh(days = state.daysLoaded) {
       api<Marker[]>(`/markers?from=${from}&to=${to}`),
       api<Activity[]>('/activities'),
     ]);
+    if (gen !== refreshGen) return; // közben újabb lekérés indult — ez elavult
     set({ markers, activities, daysLoaded: days, error: null, ready: true });
   } catch (e) {
     // Mindig online az elvárás, de a hálózat akkor is elmehet — ilyenkor a
     // korábban betöltött adat a képernyőn marad, és jelezzük, hogy elavult.
+    if (gen !== refreshGen) return;
     set({ error: `Nem érhető el a szerver (${(e as Error).message})` });
     set({ ready: true });
   } finally {
-    set({ loading: false });
+    if (gen === refreshGen) set({ loading: false });
   }
 }
 

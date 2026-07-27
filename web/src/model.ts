@@ -171,6 +171,15 @@ export function previousOf(all: Marker[], id: string): Marker | null {
   return i > 0 ? ms[i - 1] : null;
 }
 
+/** Tevékenységenkénti összeg egy napra, hossz szerint csökkenő sorrendben. */
+export function dailyTotals(segments: Segment[]): Array<{ activityId: string; ms: number }> {
+  const by = new Map<string, number>();
+  for (const s of segments) by.set(s.activityId, (by.get(s.activityId) ?? 0) + (s.end - s.start));
+  return [...by.entries()]
+    .map(([activityId, ms]) => ({ activityId, ms }))
+    .sort((a, b) => b.ms - a.ms);
+}
+
 export const SNAP_MS = 5 * 60_000;
 export const snap = (t: number, grid = SNAP_MS) => Math.round(t / grid) * grid;
 

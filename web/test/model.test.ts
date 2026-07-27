@@ -3,6 +3,7 @@ import { test } from 'node:test';
 import {
   DAY_START_HOUR,
   NONE,
+  dailyTotals,
   dayBounds,
   dayKey,
   dragBounds,
@@ -197,4 +198,18 @@ test('previousOf a megelőző markert adja — ehhez tér vissza a „mégsem ez
   assert.equal(previousOf(markers, 'c')?.id, 'b');
   assert.equal(previousOf(markers, 'a'), null, 'az elsőnek nincs előzője');
   assert.equal(previousOf(markers, 'nincs'), null);
+});
+
+test('dailyTotals tevékenységenként összegez, hossz szerint rendezve', () => {
+  const markers = [
+    mk('a', at(2026, 7, 27, 8), 'jatek'),
+    mk('b', at(2026, 7, 27, 9), 'etkezes'),
+    mk('c', at(2026, 7, 27, 9, 30), 'jatek'),
+    mk('d', at(2026, 7, 27, 12), NONE),
+  ];
+  const [from, to] = dayBounds('2026-07-27');
+  const t = dailyTotals(segmentsFor(markers, from, to, at(2026, 7, 27, 20)));
+  assert.deepEqual(t.map((x) => x.activityId), ['jatek', 'etkezes'], 'hosszabb elöl');
+  assert.equal(t[0].ms, 3.5 * 3600_000, 'a két játék-szakasz összeadódik');
+  assert.equal(t[1].ms, 0.5 * 3600_000);
 });

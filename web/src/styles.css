@@ -304,6 +304,20 @@ button { cursor: pointer; }
 
 
 
+/* Napi összesítő: a követés fő hozadéka egyetlen sorban. */
+.totals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  flex: none;
+  padding: 0 16px 10px;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+.totals__item { display: flex; align-items: center; gap: 6px; }
+.totals__item i { width: 8px; height: 8px; border-radius: 3px; flex: none; }
+.totals__item b { color: var(--text); font-variant-numeric: tabular-nums; font-weight: 600; }
+
 .day__scroll {
   flex: 1;
   overflow-y: auto;
