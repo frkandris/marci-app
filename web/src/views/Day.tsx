@@ -432,11 +432,14 @@ export function Day({
                     type="time"
                     value={toTimeInput(endMarker.at)}
                     onChange={(e) => {
-                      // A VÉGE a KÖVETKEZŐ marker kezdete — azt mozgatjuk.
+                      // A VÉGE a KÖVETKEZŐ marker kezdete — azt mozgatjuk, és
+                      // az Ő SAJÁT logikai napjához horgonyzunk. Átéjszakázó
+                      // alvásnál (22:00 -> 07:00) a kezdő marker az ELŐZŐ
+                      // logikai naphoz tartozik: onnan számolva a 08:00 a
+                      // kezdés ELÉ esne, és a korlát ~1 ms-ra omlasztaná a
+                      // szegmenst.
                       const [min, max] = dragBounds(markers, endMarker.id);
-                      // A vég a KÖVETKEZŐ marker kezdete; az is ehhez a
-                      // logikai naphoz tartozik, amíg a korlátok engedik.
-                      const t = retimeMarker(sheetMarker.at, e.target.value);
+                      const t = retimeMarker(endMarker.at, e.target.value);
                       void updateMarker(endMarker.id, {
                         at: Math.min(Math.max(t, min), Math.min(max, Date.now())),
                       });

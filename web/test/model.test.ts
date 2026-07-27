@@ -11,6 +11,7 @@ import {
   nextOf,
   previousOf,
   rankedActivities,
+  retimeMarker,
   runningMarker,
   sameClockPreviousDay,
   segmentsFor,
@@ -291,4 +292,20 @@ test('a "Vége" határ törlése a markert dobja el, nem no-op', () => {
   // A határ eldobása után az alvás a JELENIG tart.
   const utana = segmentsFor(markers.filter((m) => m.id !== 'vege'), from, to, most);
   assert.equal(utana.at(-1)!.end, most, 'a lezárás eldobásával a szegmens folytatódik');
+});
+
+test('a vég szerkesztése a VÉG-marker napjához horgonyoz (átéjszakázó szegmens)', () => {
+  // Alvás 22:00 -> másnap 07:00. A kezdő marker a 07-27-i logikai naphoz
+  // tartozik, a vég-marker viszont naptárilag már 07-28. Ha a véget a KEZDŐ
+  // napjából számolnánk, a 08:00 a kezdés ELÉ esne, és a korlát ~1 ms-ra
+  // omlasztaná a szegmenst.
+  const kezdet = at(2026, 7, 27, 22, 0);
+  const veg = at(2026, 7, 28, 7, 0);
+
+  const rosszul = retimeMarker(kezdet, '08:00');
+  assert.ok(rosszul < kezdet, 'a kezdő napjából számolva tényleg a kezdés elé esne');
+
+  const helyesen = retimeMarker(veg, '08:00');
+  assert.equal(helyesen, at(2026, 7, 28, 8, 0));
+  assert.ok(helyesen > kezdet, 'a vég-marker napjából számolva helyes');
 });

@@ -91,8 +91,12 @@ tevékenységet nem előz meg egy most rögzített. A sorrend hetek alatt követ
 gyerek rutinjában.
 
 A soha nem használtak a kézi `sort` sorrendjükben követik a többit, hogy egy új típus se essen
-véletlenszerű helyre. A viselkedés a **Beállítások** fülön kikapcsolható; ilyenkor a kézi,
-húzással állított sorrend érvényes.
+véletlenszerű helyre.
+
+**Nincs kapcsoló hozzá.** Volt egy rövid ideig, a kézi (húzással állított) sorrenddel együtt, de a
+felhasználó mindkettőt elvetette: *„a drag and drop rendezés vessze értelmét"*. A `sort` mező
+megmaradt, de már csak a soha nem használt típusoknál dönt. A **Beállítások** fülön a lista
+ÁBÉCÉ szerint áll, hogy bármit gyorsan meg lehessen találni — ez független a gombok sorrendjétől.
 
 # Visszavonás: „Mégsem ez volt"
 

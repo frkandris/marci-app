@@ -146,8 +146,12 @@ export function Capture({ onOpenDay }: { onOpenDay: (key: string) => void }) {
     undoTimer.current = setTimeout(() => setUndo(null), UNDO_MS);
   }
 
-  /** Mentés: meglévőnél csak frissít, újnál létrehoz ÉS azonnal el is indít. */
-  async function saveDraft() {
+  /**
+   * Mentés. Meglévőnél csak frissít. Újnál a `start` dönti el, hogy a
+   * létrehozás után azonnal el is induljon-e — nem minden új tevékenységet
+   * akarunk rögtön futtatni (pl. előre felvesszük az „Uszi"-t péntekre).
+   */
+  async function saveDraft(start = true) {
     if (!draft?.label.trim()) return;
 
     if (draft.id) {
@@ -180,7 +184,7 @@ export function Capture({ onOpenDay }: { onOpenDay: (key: string) => void }) {
     // bajt, a felhasználó pedig újrapróbálhatja.
     if (!row) return;
     setDraft(null);
-    await record(row.id, row.label);
+    if (start) await record(row.id, row.label);
   }
 
   async function tryDelete(id: string) {
@@ -365,6 +369,14 @@ export function Capture({ onOpenDay }: { onOpenDay: (key: string) => void }) {
               <Button rounded onClick={() => void saveDraft()} disabled={!draft.label.trim()}>
                 {draft.id ? 'Mentés' : 'Létrehoz és indít'}
               </Button>
+              {!draft.id && (
+                <Button rounded tonal onClick={() => void saveDraft(false)} disabled={!draft.label.trim()}>
+                  Csak létrehozás
+                </Button>
+              )}
+            </div>
+
+            <div className="sheet__row">
               <Button rounded tonal onClick={() => setDraft(null)}>
                 Mégse
               </Button>
