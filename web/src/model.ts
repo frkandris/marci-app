@@ -278,6 +278,19 @@ export function wallClockPct(t: number, dayEnd: number, hour = DAY_START_HOUR): 
   return (h / 24) * 100;
 }
 
+/**
+ * Egy szegmens szélessége a napi sávon, 0–100 között.
+ *
+ * A HELY faliórából jön (`wallClockPct`), a SZÉLESSÉG viszont az eltelt
+ * időből. Az őszi óraátállításkor ugyanis egy óra MEGISMÉTLŐDIK: egy
+ * 02:45 CEST → 02:15 CET szegmens faliórája visszafelé megy, és a
+ * különbségük negatív lenne — a szegmens egyszerűen eltűnne a nézetből.
+ */
+export function segmentWidthPct(start: number, end: number, startPct: number): number {
+  const byDuration = ((end - start) / 86_400_000) * 100;
+  return Math.max(0, Math.min(byDuration, 100 - startPct));
+}
+
 export const SNAP_MS = 5 * 60_000;
 export const snap = (t: number, grid = SNAP_MS) => Math.round(t / grid) * grid;
 

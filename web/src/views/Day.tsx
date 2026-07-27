@@ -380,9 +380,10 @@ export function Day({
                   key={a.id}
                   className="chip"
                   style={{ '--c': a.color } as React.CSSProperties}
-                  onClick={() => {
-                    void addMarker(a.id, newAt);
-                    setNewAt(null);
+                  onClick={async () => {
+                    // Csak SIKERES mentés után zárunk: különben a kiválasztott
+                    // időpont elveszne, a felület pedig sikert mutatna.
+                    if (await addMarker(a.id, newAt)) setNewAt(null);
                   }}
                 >
                   <Icon name={a.icon} size={16} />
@@ -391,9 +392,8 @@ export function Day({
               ))}
               <button
                 className="chip chip--none"
-                onClick={() => {
-                  void addMarker(NONE, newAt);
-                  setNewAt(null);
+                onClick={async () => {
+                  if (await addMarker(NONE, newAt)) setNewAt(null);
                 }}
               >
                 <Icon name="stop" size={16} />

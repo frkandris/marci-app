@@ -8,6 +8,7 @@ import {
   fmtDay,
   fmtDuration,
   fmtTime,
+  segmentWidthPct,
   segmentsFor,
   shiftDayKey,
   wallClockPct,
@@ -64,6 +65,7 @@ export function Overview({ onOpenDay }: { onOpenDay: (key: string) => void }) {
               <div className="row__track">
                 {segs.map((s) => {
                   const a = byId.get(s.activityId);
+                  const left = wallClockPct(s.start, to);
                   // Kijelöléskor MINDEN nap azonos kategóriájú szegmense keretet
                   // kap — így ránézésre látszik, hogyan mozog napról napra.
                   const marked = sel?.activityId === s.activityId;
@@ -76,10 +78,10 @@ export function Overview({ onOpenDay }: { onOpenDay: (key: string) => void }) {
                         // Faliórás pozíció: az óraátállítás napján is a közös
                         // óratengelyhez igazodik, különben pont az veszne el,
                         // amiért ez a nézet létezik.
-                        left: `${wallClockPct(s.start, to)}%`,
+                        left: `${left}%`,
                         // Minimális szélesség: enélkül egy azonnal javított,
                         // pár másodperces marker nyom nélkül eltűnne.
-                        width: `max(2px, ${wallClockPct(s.end, to) - wallClockPct(s.start, to)}%)`,
+                        width: `max(2px, ${segmentWidthPct(s.start, s.end, left)}%)`,
                         background: a?.color ?? '#A9AEB8',
                       }}
                       aria-label={`${a?.label ?? s.activityId}, ${fmtTime(s.start)}–${fmtTime(s.end)}`}

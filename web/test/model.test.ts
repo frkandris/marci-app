@@ -14,6 +14,7 @@ import {
   retimeMarker,
   runningMarker,
   sameClockPreviousDay,
+  segmentWidthPct,
   segmentsFor,
   shiftDayKey,
   snap,
@@ -326,4 +327,19 @@ test('wallClockPct a FALIÓRÁHOZ igazít, óraátállításkor is', () => {
 
   const [f3, t3] = dayBounds('2026-03-29');
   assert.equal(wallClockPct(at(2026, 3, 29, 16, 0), t3), 50);
+});
+
+test('a szegmens szélessége az őszi óraátállításnál sem lehet negatív', () => {
+  // Ősszel egy óra MEGISMÉTLŐDIK, ezért egy későbbi időpont faliórája
+  // korábbi lehet — a puszta százalék-különbség negatív lenne, és a
+  // szegmens eltűnne a nézetből.
+  const [f, t] = dayBounds('2026-10-25');
+  const start = f + 22 * 3600_000; // jóval a nap belsejében
+  const end = start + 45 * 60_000;
+  const w = segmentWidthPct(start, end, wallClockPct(start, t));
+  assert.ok(w > 0, 'pozitív szélesség');
+  assert.ok(w <= 100 - wallClockPct(start, t) + 0.001, 'nem lóg ki a sávból');
+
+  // Mesterségesen visszafelé menő faliórára is nemnegatív marad.
+  assert.equal(segmentWidthPct(1000, 900, 50), 0);
 });
