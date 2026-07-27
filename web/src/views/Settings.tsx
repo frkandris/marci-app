@@ -68,7 +68,9 @@ export function Settings() {
       label: '',
       color: PRESETS[(live.length * 3) % PRESETS.length],
       icon: 'star',
-      sort: (live.at(-1)?.sort ?? 0) + 10,
+      // A `live` ÁBÉCÉ szerint van rendezve, nem `sort` szerint — a legnagyobb
+      // kézi sort-ból számolunk, különben ütköző értéket kapna.
+      sort: Math.max(0, ...live.map((a) => a.sort)) + 10,
       archived: false,
     });
   }

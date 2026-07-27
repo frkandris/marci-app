@@ -71,6 +71,8 @@ export function Capture({ onOpenDay }: { onOpenDay: (key: string) => void }) {
   const stripRef = useRef<HTMLDivElement>(null);
   const tapStart = useRef<{ x: number; scroll: number } | null>(null);
   const undoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** Sorszám a párhuzamos rögzítésekhez — csak a LEGUTOLSÓ állíthat undo-t. */
+  const recordSeq = useRef(0);
 
   // Másodpercenként, nem requestAnimationFrame-mel: háttérben az iOS lassítja
   // vagy leállítja az időzítőket, ezért visszatéréskor újraigazítunk.
@@ -137,8 +139,13 @@ export function Capture({ onOpenDay }: { onOpenDay: (key: string) => void }) {
     // FRISS időbélyeg, nem a másodpercenként frissülő `now`: két gyors
     // koppintás különben azonos `at`-et kapna, és a sorrendjüket a véletlen
     // UUID döntené el — a „Vége" akár a tevékenység ELÉ kerülhetne.
+    const seq = ++recordSeq.current;
     const row = await addMarker(activityId, Date.now());
     if (!row) return;
+    // Két gyors koppintásnál a kérések párhuzamosan futnak. Ha a KORÁBBI
+    // fejeződik be utoljára, enélkül az ő markerére mutatna a visszavonás —
+    // vagyis a régebbi határt törölné, a legutóbbit futni hagyva.
+    if (seq !== recordSeq.current) return;
     // Megerősítés helyett visszavonás: a téves koppintás olcsón javítható, a
     // helyes rögzítés viszont nem drágul meg egy párbeszéddel.
     setUndo({ id: row.id, label });
