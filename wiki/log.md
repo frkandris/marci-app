@@ -7,6 +7,9 @@ merge drivert működőképessé és a fájlt grep-elhetővé:
 
 ## 2026-07-27
 
+* **Változás**: A „Mégsem ez volt" visszavonás a **legutolsó markerre** vonatkozik, nem csak a futó tevékenységre — így a tévedésből megnyomott „Vége" is visszavonható („Mégsem ért véget — vissza: X").
+* **Létrehozás**: A napi idővonalon a nap utolsó tevékenységét választva, ha semmi nem fut, megjelenik a **Folytatás most** gomb: új markerrel indítja újra ugyanazt. A régi szegmenst szándékosan nem nyújtjuk meg, mert a közben eltelt idő nem az volt.
+
 * **Változás**: A Napok nézetben egy sávra koppintva **minden nap azonos kategóriájú szegmense keretet kap**, a többi elhalványul; az alsó sáv a kijelölt kategóriát és annak kezdetét/végét/hosszát mutatja az adott napon. A mindent felsoroló jelmagyarázat kikerült.
 * **Kivezetés**: A kézi, drag-and-drop sorrendezés kikerült a felületről — a használati pontszám váltotta ki. A `sort` mező már csak a soha nem használt típusoknál dönt.
 

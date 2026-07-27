@@ -94,6 +94,20 @@ A soha nem használtak a kézi `sort` sorrendjükben követik a többit, hogy eg
 véletlenszerű helyre. A viselkedés a **Beállítások** fülön kikapcsolható; ilyenkor a kézi,
 húzással állított sorrend érvényes.
 
+# Visszavonás: „Mégsem ez volt"
+
+A futó tevékenység kártyáján megjelenik egy gomb, ami **megnevezi, mihez tér vissza**
+(„Mégsem ez volt — vissza: Alvás"). A legutolsó marker törlésével az előző szegmens folytatódik
+onnan, ahol abbamaradt. 10 percig ajánljuk fel; utána a [napi idővonal](/features/napi-idovonal.md)
+a javítás helye.
+
+**A „Vége" gombra is vonatkozik.** Az is elnyomható tévedésből, és utána nincs futó tevékenység,
+tehát a régi, csak futásra szűrő logika nem kínálta fel. A gomb ezért a **legutolsó markerre**
+vonatkozik, a típusától függetlenül; `__none__`-nál a felirata „Mégsem ért véget — vissza: X".
+
+A minta a Toggl *Discard idle and continue* megoldásából jön: nem tűnő toast, hanem tartós,
+önmagát megmagyarázó művelet ott, ahol a szem amúgy is van.
+
 # Figyelmeztetés a beragadt tevékenységre
 
 Ha a futó tevékenység **12 óránál régebben** indult, a képernyő jelezze — jellemzően azt jelenti,

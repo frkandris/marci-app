@@ -5,6 +5,7 @@ import { useStore } from '../App';
 import { addMarker, deleteMarker, saveActivity } from '../store';
 import {
   DAY_START_HOUR,
+  activeMarkers,
   NONE,
   dayKey,
   dayStartMs,
@@ -89,11 +90,17 @@ export function Capture({ onOpenDay }: { onOpenDay: (key: string) => void }) {
   const elapsed = running ? now - running.at : 0;
   const stuck = elapsed > STUCK_MS;
 
-  // Téves koppintás visszavonása: a futó marker törlésével az ELŐZŐ tevékenység
-  // folytatódik onnan, ahol abbamaradt. Csak friss rögzítésnél kínáljuk fel.
-  const prevMarker = running ? previousOf(markers, running.id) : null;
+  /**
+   * Téves koppintás visszavonása. A LEGUTOLSÓ markerre vonatkozik — akkor is,
+   * ha az a „Vége" (`__none__`), mert azt is el lehet nyomni tévedésből. A
+   * marker törlésével az ELŐZŐ tevékenység folytatódik onnan, ahol abbamaradt.
+   */
+  const started = activeMarkers(markers).filter((m) => m.at <= now);
+  const lastMarker = started[started.length - 1] ?? null;
+  const oops = lastMarker && now - lastMarker.at < OOPS_WINDOW_MS ? lastMarker : null;
+  const prevMarker = oops ? previousOf(markers, oops.id) : null;
   const prevAct = prevMarker ? activities.find((a) => a.id === prevMarker.activityId) : null;
-  const canOops = !!running && elapsed < OOPS_WINDOW_MS;
+  const oopsLabel = prevAct?.label ?? (prevMarker ? 'Vége' : null);
 
   const from = dayStartMs(today, STRIP_FROM_H);
   const to = dayStartMs(shiftDayKey(today, 1), 0); // éjfél
@@ -154,24 +161,25 @@ export function Capture({ onOpenDay }: { onOpenDay: (key: string) => void }) {
             </div>
             <div className="current__clock">{fmtClock(elapsed)}</div>
             <div className="current__since">{fmtTime(running.at)} óta</div>
-            {canOops && (
-              <button
-                className="oops"
-                onClick={() => {
-                  void deleteMarker(running.id);
-                  setUndo(null);
-                }}
-              >
-                Mégsem ez volt
-                {prevAct ? ` — vissza: ${prevAct.label}` : prevMarker ? ' — vissza: Vége' : ''}
-              </button>
-            )}
           </>
         ) : (
           <>
             <div className="current__clock current__clock--idle">–:––</div>
             <div className="current__since">Nincs futó tevékenység</div>
           </>
+        )}
+
+        {oops && (
+          <button
+            className="oops"
+            onClick={() => {
+              void deleteMarker(oops.id);
+              setUndo(null);
+            }}
+          >
+            {oops.activityId === NONE ? 'Mégsem ért véget' : 'Mégsem ez volt'}
+            {oopsLabel ? ` — vissza: ${oopsLabel}` : ''}
+          </button>
         )}
       </section>
 

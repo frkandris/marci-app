@@ -57,6 +57,16 @@ Mindhárom **egyetlen rekord egyetlen mezőjét** írja — ez a
 | **Típus átírása** | Koppintás → típusválasztó | `marker.activity_id` |
 | **Törlés** | Koppintás → Törlés | `activity_id = '__none__'` — a sáv **nem rögzített** lesz |
 
+## Folytatás
+
+Ha a **nap utolsó** tevékenységét nézzük, és épp **semmi nem fut** („Vége" állapotban vagyunk), a
+lapon megjelenik a **Folytatás most** gomb. Ez ugyanazt a tevékenységet indítja újra a **jelen
+pillanattal**.
+
+Szándékosan nem a régi szegmenst nyújtjuk meg: a „Vége" és a folytatás közt eltelt idő tényleg nem
+az a tevékenység volt, és hazugság lenne annak tulajdonítani. Új marker jön létre, a lyuk pedig
+lyuk marad.
+
 ## Miért nem a marker eldobása a törlés
 
 Kézenfekvő lenne, hogy a „Törlés" egyszerűen eldobja a markert. A

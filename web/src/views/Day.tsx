@@ -18,6 +18,7 @@ import {
   markersIn,
   nextOf,
   previousOf,
+  runningMarker,
   segmentsFor,
   shiftDayKey,
   snap,
@@ -191,6 +192,19 @@ export function Day({
 
   const sheetMarker = sheet ? markers.find((m) => m.id === sheet) : null;
   const endMarker = sheetMarker ? nextOf(markers, sheetMarker.id) : null;
+
+  /**
+   * Folytatás: ha a nap UTOLSÓ tevékenységét nézzük, és épp semmi nem fut
+   * („Vége" állapot), akkor ugyanezt a tevékenységet MOST újraindíthatjuk.
+   * Nem a régi szegmenst nyújtjuk meg — új marker jön létre a jelen
+   * pillanattal —, mert a közte eltelt idő tényleg nem az volt.
+   */
+  const canResume =
+    !!sheetMarker &&
+    sheetMarker.activityId !== NONE &&
+    segments.length > 0 &&
+    segments[segments.length - 1].markerId === sheetMarker.id &&
+    runningMarker(markers) === null;
 
   /**
    * A szegmens „törlése" NEM a marker eldobása: az csak összevonná az előzővel,
@@ -423,6 +437,20 @@ export function Day({
                 </button>
               ))}
             </div>
+
+            {canResume && (
+              <div className="sheet__row">
+                <Button
+                  rounded
+                  onClick={() => {
+                    void addMarker(sheetMarker.activityId);
+                    setSheet(null);
+                  }}
+                >
+                  Folytatás most
+                </Button>
+              </div>
+            )}
 
             <div className="sheet__row">
               <Button
