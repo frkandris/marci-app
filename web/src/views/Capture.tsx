@@ -12,7 +12,6 @@ import {
   fmtTime,
   liveActivities,
   runningMarker,
-  sameClockPreviousDay,
   segmentsFor,
   shiftDayKey,
 } from '../model';
@@ -41,8 +40,6 @@ const STRIP_FROM_H = 6;
 export function Capture({ onOpenDay }: { onOpenDay: (key: string) => void }) {
   const { markers, activities } = useStore();
   const [now, setNow] = useState(Date.now());
-  const [backdate, setBackdate] = useState(false);
-  const [backTime, setBackTime] = useState('');
   const [undo, setUndo] = useState<{ id: string; label: string } | null>(null);
   const [draft, setDraft] = useState<{ label: string; icon: string; color: string } | null>(null);
   const undoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -77,18 +74,9 @@ export function Capture({ onOpenDay }: { onOpenDay: (key: string) => void }) {
   const colorOf = (id: string) => activities.find((a) => a.id === id)?.color ?? '#8b93a5';
 
   async function record(activityId: string, label: string) {
-    let at = now;
-    if (backdate && backTime) {
-      const [h, m] = backTime.split(':').map(Number);
-      const d = new Date(now);
-      d.setHours(h, m, 0, 0);
-      // Ha a megadott idő a jövőben van, tegnapról van szó. NAPTÁRI léptetéssel,
-      // nem −24 órával: az óraátállítás napján az elcsúsztatná a kért időpontot.
-      at = d.getTime() > now ? sameClockPreviousDay(d.getTime()) : d.getTime();
-      setBackdate(false);
-      setBackTime('');
-    }
-    const row = await addMarker(activityId, at);
+    // Mindig a jelen pillanat. Az utólagos javítás a Nap nézet dolga, ahol a
+    // határok húzhatók — így a rögzítés egyetlen koppintás marad.
+    const row = await addMarker(activityId, now);
     if (!row) return;
     // Megerősítés helyett visszavonás: a téves koppintás olcsón javítható, a
     // helyes rögzítés viszont nem drágul meg egy párbeszéddel.
@@ -170,23 +158,6 @@ export function Capture({ onOpenDay }: { onOpenDay: (key: string) => void }) {
         </div>
       </button>
 
-      <div className="capture__head">
-        <h2 className="eyebrow">Mi következik?</h2>
-        <button className={`link ${backdate ? 'is-on' : ''}`} onClick={() => setBackdate((v) => !v)}>
-          {backdate ? 'Mégis most' : 'Nem most kezdődött?'}
-        </button>
-      </div>
-
-      {backdate && (
-        <input
-          className="timeinput"
-          type="time"
-          value={backTime}
-          onChange={(e) => setBackTime(e.target.value)}
-          aria-label="Kezdés időpontja"
-        />
-      )}
-
       <div className="grid">
         {live.map((a) => (
           <button
@@ -194,7 +165,6 @@ export function Capture({ onOpenDay }: { onOpenDay: (key: string) => void }) {
             className="bigbtn"
             style={{ '--c': a.color } as React.CSSProperties}
             onClick={() => void record(a.id, a.label)}
-            disabled={backdate && !backTime}
           >
             <span className="bigbtn__icon">
               <Icon name={a.icon} size={19} />
@@ -216,7 +186,6 @@ export function Capture({ onOpenDay }: { onOpenDay: (key: string) => void }) {
         <button
           className="bigbtn bigbtn--none"
           onClick={() => void record(NONE, 'Vége')}
-          disabled={backdate && !backTime}
         >
           <span className="bigbtn__icon">
             <Icon name="stop" size={19} />

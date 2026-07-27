@@ -25,6 +25,8 @@ export const ICON_NAMES = [
   'music',
   'heart',
   'health',
+  'person',
+  'people',
   'star',
   'stop',
   // Fülikonok — nem választhatók tevékenységhez, de ugyanabból a készletből.
@@ -65,6 +67,10 @@ const PATHS: Record<IconName, string> = {
   heart: 'M12 21s-8.4-4.9-9.7-10.2A5.7 5.7 0 0 1 12 6.3a5.7 5.7 0 0 1 9.7 4.5C20.4 16.1 12 21 12 21z',
   // egészség / kereszt
   health: 'M9 2h6a1 1 0 0 1 1 1v5h5a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-5v5a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1v-5H3a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1h5V3a1 1 0 0 1 1-1z',
+  // egy ember
+  person: 'M12 3.1a3.9 3.9 0 1 1 0 7.8 3.9 3.9 0 0 1 0-7.8zm0 9.5c4.1 0 7.4 2.3 7.4 5.2v1.5a1 1 0 0 1-1 1H5.6a1 1 0 0 1-1-1v-1.5c0-2.9 3.3-5.2 7.4-5.2z',
+  // két ember
+  people: 'M9 3.3a3.6 3.6 0 1 1 0 7.2 3.6 3.6 0 0 1 0-7.2zm0 8.9c3.8 0 6.9 2.1 6.9 4.8v1.3a1 1 0 0 1-1 1H3.1a1 1 0 0 1-1-1v-1.3c0-2.7 3.1-4.8 6.9-4.8zM17.4 4.5a3 3 0 1 1 0 6 3 3 0 0 1 0-6zm.3 7.8c2.5.2 4.3 1.6 4.3 3.5v1.5a1 1 0 0 1-1 1h-3.2v-1.3c0-1.8-.9-3.4-2.4-4.4a9.7 9.7 0 0 1 2.3-.3z',
   // csillag
   star: 'M12 2.5l2.9 5.9 6.5.9-4.7 4.6 1.1 6.5-5.8-3-5.8 3 1.1-6.5L2.6 9.3l6.5-.9L12 2.5z',
   // stop
