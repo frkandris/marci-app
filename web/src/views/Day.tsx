@@ -22,8 +22,8 @@ import {
   segmentsFor,
   shiftDayKey,
   snap,
+  timeInLogicalDay,
   toTimeInput,
-  withTimeOfDay,
 } from '../model';
 
 interface Drag {
@@ -408,7 +408,7 @@ export function Day({
                   value={toTimeInput(sheetMarker.at)}
                   onChange={(e) => {
                     const [min, max] = dragBounds(markers, sheetMarker.id);
-                    const t = withTimeOfDay(sheetMarker.at, e.target.value);
+                    const t = timeInLogicalDay(from, e.target.value);
                     void updateMarker(sheetMarker.id, {
                       at: Math.min(Math.max(t, min), max),
                     });
@@ -425,7 +425,9 @@ export function Day({
                     onChange={(e) => {
                       // A VÉGE a KÖVETKEZŐ marker kezdete — azt mozgatjuk.
                       const [min, max] = dragBounds(markers, endMarker.id);
-                      const t = withTimeOfDay(endMarker.at, e.target.value);
+                      // A vég a KÖVETKEZŐ marker kezdete; az is ehhez a
+                      // logikai naphoz tartozik, amíg a korlátok engedik.
+                      const t = timeInLogicalDay(from, e.target.value);
                       void updateMarker(endMarker.id, {
                         at: Math.min(Math.max(t, min), max),
                       });

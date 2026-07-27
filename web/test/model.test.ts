@@ -16,9 +16,9 @@ import {
   segmentsFor,
   shiftDayKey,
   snap,
+  timeInLogicalDay,
   toTimeInput,
   usageScores,
-  withTimeOfDay,
 } from '../src/model.ts';
 import type { Activity, Marker } from '../src/model.ts';
 
@@ -219,13 +219,9 @@ test('dailyTotals tevékenységenként összegez, hossz szerint rendezve', () =>
   assert.equal(t[1].ms, 0.5 * 3600_000);
 });
 
-test('withTimeOfDay megtartja a naptári napot, csak az órát cseréli', () => {
-  const t = at(2026, 7, 27, 18, 25);
-  const out = new Date(withTimeOfDay(t, '06:05'));
-  assert.equal(out.getDate(), 27);
-  assert.equal(out.getHours(), 6);
-  assert.equal(out.getMinutes(), 5);
-  assert.equal(toTimeInput(t), '18:25');
+test('toTimeInput az input mezo alakjat adja', () => {
+  assert.equal(toTimeInput(at(2026, 7, 27, 18, 25)), '18:25');
+  assert.equal(toTimeInput(at(2026, 7, 27, 6, 5)), '06:05');
 });
 
 test('nextOf a szegmens VÉGÉT meghatározó markert adja', () => {
@@ -259,4 +255,19 @@ test('rankedActivities a soha nem használtakat a kézi sorrendben hagyja', () =
   ];
   const ranked = rankedActivities(acts, [mk('m', now - 3600000, 'a')], now);
   assert.deepEqual(ranked.map((x) => x.id), ['a', 'b', 'c'], 'a használt elöl, a többi sort szerint');
+});
+
+test('timeInLogicalDay a MEGJELENÍTETT naphoz horgonyoz, éjfélen át is', () => {
+  // A 2026-07-27 logikai nap 07-27 04:00-tól 07-28 04:00-ig tart.
+  const [from] = dayBounds('2026-07-27');
+  // Késő esti időpont -> ugyanaz a naptári nap.
+  assert.equal(timeInLogicalDay(from, '23:00'), at(2026, 7, 27, 23, 0));
+  // Hajnali időpont -> a KÖVETKEZŐ naptári nap, de UGYANAZ a logikai nap.
+  assert.equal(timeInLogicalDay(from, '02:00'), at(2026, 7, 28, 2, 0));
+  // Az eredmény mindig a napon BELÜL van.
+  const [f, t] = dayBounds('2026-07-27');
+  for (const hhmm of ['04:00', '12:30', '23:59', '00:15', '03:59']) {
+    const x = timeInLogicalDay(f, hhmm);
+    assert.ok(x >= f && x < t, `${hhmm} kiesett a napból`);
+  }
 });

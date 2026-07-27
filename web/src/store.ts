@@ -214,6 +214,10 @@ export const unarchiveActivity = (a: Activity) => saveActivity({ ...a, archived:
  * Visszatérés: `null` ha sikerült, különben a használatok száma.
  */
 export async function deleteActivityHard(id: string, cascade = false): Promise<number | null> {
+  // Ez a függvény nem a `guard`-on megy át, ezért itt kell érvénytelenítenünk
+  // a folyamatban lévő lekéréseket — különben egy régi poll visszahozná a
+  // törölt tevékenységet és a markereit.
+  refreshGen++;
   const q = `?hard=1${cascade ? '&cascade=1' : ''}`;
   const res = await authFetch(`/activities/${encodeURIComponent(id)}${q}`, { method: 'DELETE' });
   if (res.status === 409) return (await res.json()).usage ?? 0;

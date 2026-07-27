@@ -180,10 +180,21 @@ export function dailyTotals(segments: Segment[]): Array<{ activityId: string; ms
     .sort((a, b) => b.ms - a.ms);
 }
 
-/** Ugyanaz a naptári nap, új óra:perc. A `HH:MM` az `<input type="time">` alakja. */
-export function withTimeOfDay(at: number, hhmm: string): number {
+/**
+ * A `HH:MM` időpont a MEGJELENÍTETT logikai napon belül.
+ *
+ * Nem elég a marker naptári napját megtartani: a logikai nap 04:00-tól
+ * 04:00-ig tart, tehát egy 02:00-s marker naptárilag már a KÖVETKEZŐ napon
+ * van. Ha ilyenkor 23:00-ra írnánk át a naptári napot megtartva, az esemény
+ * egy nappal odébb kerülne — eltűnne a nézetből, vagy a jövőbe csúszna.
+ *
+ * @param dayFrom a logikai nap kezdete (a `dayBounds` első eleme)
+ */
+export function timeInLogicalDay(dayFrom: number, hhmm: string, hour = DAY_START_HOUR): number {
   const [h, m] = hhmm.split(':').map(Number);
-  const d = new Date(at);
+  const d = new Date(dayFrom);
+  // A napkezdet előtti órák a KÖVETKEZŐ naptári napra esnek.
+  if (h < hour) d.setDate(d.getDate() + 1);
   d.setHours(h, m, 0, 0);
   return d.getTime();
 }
