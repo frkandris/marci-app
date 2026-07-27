@@ -1,0 +1,179 @@
+/**
+ * Vékony REST-kliens. A szerver az EGYETLEN igazságforrás: nincs lokális tár,
+ * nincs dirty flag, nincs ütközésfeloldás.
+ * Lásd wiki/decisions/2026-07-27-online-only.md.
+ */
+import { dayBounds, dayKey, shiftDayKey, type Activity, type Marker } from './model';
+
+/** Hány napra visszamenőleg töltünk be egyszerre. A Napok nézet ezt bővíti. */
+const INITIAL_DAYS = 45;
+/** A másik telefon változásai ennyi időn belül jelennek meg. */
+const POLL_MS = 30_000;
+
+export interface State {
+  ready: boolean;
+  markers: Marker[];
+  activities: Activity[];
+  daysLoaded: number;
+  loading: boolean;
+  error: string | null;
+}
+
+let state: State = {
+  ready: false,
+  markers: [],
+  activities: [],
+  daysLoaded: INITIAL_DAYS,
+  loading: false,
+  error: null,
+};
+
+const listeners = new Set<() => void>();
+export const subscribe = (fn: () => void) => (listeners.add(fn), () => void listeners.delete(fn));
+export const getState = () => state;
+const set = (patch: Partial<State>) => {
+  state = { ...state, ...patch };
+  listeners.forEach((f) => f());
+};
+
+async function api<T>(path: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(`/api${path}`, {
+    ...init,
+    headers: init?.body ? { 'Content-Type': 'application/json' } : undefined,
+  });
+  if (!res.ok) {
+    let detail = String(res.status);
+    try {
+      detail = (await res.json()).error ?? detail;
+    } catch {
+      /* nem JSON */
+    }
+    throw new Error(detail);
+  }
+  return res.status === 204 ? (undefined as T) : ((await res.json()) as T);
+}
+
+/** A betöltött ablak: `daysLoaded` nappal ezelőttől a holnapi nap kezdetéig. */
+function window_(days = state.daysLoaded): [number, number] {
+  const today = dayKey(Date.now());
+  return [dayBounds(shiftDayKey(today, -(days - 1)))[0], dayBounds(shiftDayKey(today, 1))[1]];
+}
+
+export async function refresh(days = state.daysLoaded) {
+  set({ loading: true });
+  try {
+    const [from, to] = window_(days);
+    const [markers, activities] = await Promise.all([
+      api<Marker[]>(`/markers?from=${from}&to=${to}`),
+      api<Activity[]>('/activities'),
+    ]);
+    set({ markers, activities, daysLoaded: days, error: null, ready: true });
+  } catch (e) {
+    // Mindig online az elvárás, de a hálózat akkor is elmehet — ilyenkor a
+    // korábban betöltött adat a képernyőn marad, és jelezzük, hogy elavult.
+    set({ error: `Nem érhető el a szerver (${(e as Error).message})` });
+    set({ ready: true });
+  } finally {
+    set({ loading: false });
+  }
+}
+
+export const loadMoreDays = (extra = 30) => refresh(state.daysLoaded + extra);
+
+// --- műveletek ------------------------------------------------------------
+// A végpontok visszaadják a mentett sort, ezt írjuk vissza az állapotba.
+// Így nincs teljes újratöltés minden húzás után.
+
+const upsertLocal = (row: Marker) =>
+  set({
+    markers: state.markers.some((m) => m.id === row.id)
+      ? state.markers.map((m) => (m.id === row.id ? row : m))
+      : [...state.markers, row],
+    error: null,
+  });
+
+async function guard<T>(fn: () => Promise<T>): Promise<T | null> {
+  try {
+    return await fn();
+  } catch (e) {
+    set({ error: `Nem sikerült menteni: ${(e as Error).message}` });
+    return null;
+  }
+}
+
+export const addMarker = (activityId: string, at = Date.now(), note: string | null = null) =>
+  guard(async () =>
+    upsertLocal(
+      await api<Marker>('/markers', {
+        method: 'POST',
+        body: JSON.stringify({ at, activityId, note }),
+      }),
+    ),
+  );
+
+export const updateMarker = (id: string, patch: Partial<Marker>) =>
+  guard(async () =>
+    upsertLocal(
+      await api<Marker>(`/markers/${encodeURIComponent(id)}`, {
+        method: 'PATCH',
+        body: JSON.stringify(patch),
+      }),
+    ),
+  );
+
+export const deleteMarker = (id: string) =>
+  guard(async () => {
+    await api<void>(`/markers/${encodeURIComponent(id)}`, { method: 'DELETE' });
+    set({ markers: state.markers.filter((m) => m.id !== id), error: null });
+  });
+
+export const saveActivity = (a: Activity) =>
+  guard(async () => {
+    const row = await api<Activity>(`/activities/${encodeURIComponent(a.id)}`, {
+      method: 'PUT',
+      body: JSON.stringify(a),
+    });
+    set({
+      activities: state.activities.some((x) => x.id === row.id)
+        ? state.activities.map((x) => (x.id === row.id ? row : x))
+        : [...state.activities, row],
+      error: null,
+    });
+  });
+
+export const archiveActivity = (id: string) =>
+  guard(async () => {
+    await api<void>(`/activities/${encodeURIComponent(id)}`, { method: 'DELETE' });
+    set({
+      activities: state.activities.map((a) => (a.id === id ? { ...a, archived: true } : a)),
+      error: null,
+    });
+  });
+
+// --- életciklus -----------------------------------------------------------
+
+export function init() {
+  void refresh();
+
+  let timer: ReturnType<typeof setInterval> | null = null;
+  const start = () => {
+    if (!timer) timer = setInterval(() => void refresh(), POLL_MS);
+  };
+  const stop = () => {
+    if (timer) clearInterval(timer);
+    timer = null;
+  };
+
+  // Háttérben nincs értelme kérdezgetni; előtérbe kerüléskor viszont azonnal
+  // kell egy friss lekérés, mert a másik telefon közben írhatott.
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      void refresh();
+      start();
+    } else {
+      stop();
+    }
+  });
+  window.addEventListener('online', () => void refresh());
+  if (document.visibilityState === 'visible') start();
+}

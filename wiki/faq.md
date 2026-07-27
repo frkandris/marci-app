@@ -19,9 +19,11 @@ mód „Flexible", akkor a Cloudflare→origin szakasz titkosítatlan, és a Coo
 [Részletek](/integrations/coolify-hetzner.md).
 
 **Kap-e a Coolify felülete is HTTPS-t?**
-Egyelőre nem — `http://157.180.21.144:8000` marad. Ennek egyetlen gyakorlati következménye, hogy
-**API-tokent nem szabad kiadni**, mert cleartextben utazna. A deployhoz nincs is rá szükség: a
-GitHub-webhook elég.
+Egyelőre nem — `http://157.180.21.144:8000` marad. Következmény: **minden API-token cleartextben
+utazik** a publikus interneten. 2026-07-27-én kiadásra került egy token az app beállításához;
+**ezt használat után vissza kell vonni** (Keys & Tokens → API Tokens → a sor törlése), és
+amíg a Coolify HTTP-n van, csak eseti, rövid életű tokent szabad kiadni. A rendszeres deployhoz
+nincs is rá szükség: a GitHub-webhook elég.
 
 **Maradjon-e a nyílt API?**
 Egyelőre igen, ez [tudatos döntés](/decisions/2026-07-27-nincs-hitelesites.md). A `SHARED_TOKEN`
@@ -54,38 +56,37 @@ legérdekesebb szegmens kettétörne, két külön sorra.
 [Részletes indoklás](/decisions/2026-07-27-logikai-napkezdet.md).
 
 **Mi történik, ha mindkét telefonon egyszerre rögzítünk?**
-Ha **különböző** markereket, semmi — mindkettő felmegy, összefésülődik. Ha **ugyanazt** módosítjuk
-offline, a későbbi `edited_at` nyer, és a másik módosítás **elveszik** (nincs mezőnkénti merge).
-Két családi telefonnál ezt elfogadtuk —
-[indoklás](/decisions/2026-07-27-offline-first-lww-szinkron.md).
+Semmi különös: mindkét kérés a szerverre megy, és ott hajtódik végre. Ugyanannak a markernek az
+egyidejű módosításánál az nyer, amelyik később ér be. Nincs figyelmeztetés arról, hogy a másik
+telefon közben módosított — két embernél ez elfogadható.
+
+**Mennyi idő alatt látja meg a másik telefon a rögzítést?**
+Legfeljebb 30 másodperc, ha az app nyitva van; azonnal, ha közben előtérbe kerül.
+[Részletek](/features/szinkronizacio.md).
 
 # Technika
 
-**Miért kell `edited_at` ÉS `seq` is? Nem redundancia?**
-Nem — két különböző problémát oldanak meg, és a felcserélésük némán adatot veszít. A `seq` azért
-kurzor, mert szerveroldali és garantáltan monoton; egy kliensóra hátraállítása esetén az
-`edited_at`-tel kurzorozva sorok **örökre láthatatlanná** válnának. Az `edited_at` viszont azért
-dönt az ütközésről, mert az a helyes kérdés, hogy *mikor döntött úgy az ember* — nem az, hogy
-melyik telefon jutott előbb hálózathoz.
-[Kifejtve](/decisions/2026-07-27-offline-first-lww-szinkron.md).
+**Miért nincs offline mód?**
+Volt — az [offline-first döntés](/decisions/2026-07-27-offline-first-lww-szinkron.md) implementálva
+lett IndexedDB-vel, `dirty` jelöléssel és LWW ütközésfeloldással. Aztán kiderült, hogy a kiinduló
+feltevés nem áll: mindig van hálózat. Az egész gépezet indoklás nélkül maradt, ezért kikerült.
+[Az utód döntés](/decisions/2026-07-27-online-only.md) leírja, mit nyertünk és mit adtunk fel.
 
-**Miért nem CRDT?**
-Mert azt a problémát oldja meg, ami itt nincs: sok szerkesztő, ugyanazon a mezőn, konkurensen,
-veszteségmentes megőrzési igénnyel. Itt két ember van, akik szinte mindig különböző markereket
-írnak. A CRDT ára — függőség, tárméret, hibakeresési nehézség — semmit nem vásárolna.
+**Mi történik, ha mégis elmegy a hálózat?**
+A mentés **nem történik meg**, és ezt hibasáv jelzi — újra kell nyomni. A korábban betöltött adat
+a képernyőn marad, hogy ne üres felületet láss. Ez tudatosan vállalt ár.
 
-**Miért nem működik a szinkron, amíg az app be van zárva?**
-Mert iOS-en **nincs Background Sync API**. A szinkron csak előtérben futhat: appindításkor,
-`visibilitychange`-nél, `online`-nál, és írás után debounce-olva. Ez nem hiba, hanem
-platformkorlát — [a teljes lista](/integrations/ios-safari-pwa.md).
+**Miért a beépített `node:sqlite`, és nem a `better-sqlite3`?**
+Mert így **nincs natív függőség**: az alpine Docker-image elég, és nincs fordítási lépés a
+buildben. Az [SQLite-döntés](/decisions/2026-07-27-sqlite-adattar.md) indoklása (egy fájl, egy
+volume, triviális mentés) változatlanul áll.
 
 **Elveszhet-e adat?**
-Három reális forgatókönyv van, mindhárom dokumentált:
-1. **Nincs Coolify-volume a `/data`-n** → minden redeploy törli az adatbázist. Ez a legvalószínűbb
-   és a legalattomosabb, mert semmi nem jelzi. [Ellenőrzés](/integrations/coolify-hetzner.md).
-2. **A kezdőképernyős ikon törlése** iOS-en törli a lokális tárat → a még fel nem szinkronizált
-   változások elvesznek. Ezért mutat a UI jelzést a függőben lévő változásokról.
-3. **Konkurens szerkesztés** ugyanazon a markeren → az egyik oldal módosítása felülíródik (LWW).
+Az online-only modell óta gyakorlatilag egy forgatókönyv maradt, és az a súlyos:
+**nincs Coolify-volume a `/data`-n** → minden redeploy törli az adatbázist. Ez a legvalószínűbb és
+a legalattomosabb hiba, mert semmi nem jelzi. [Ellenőrzés](/integrations/coolify-hetzner.md).
+A kliensen nincs mit elveszíteni: ami a szerverre felment, az megvan; ami nem ment fel, arról
+hibaüzenetet kaptál.
 
 **Miért nem külön frontend- és backend-service?**
 Mert az azonos origin megszünteti a CORS-t, és mert így a frontend és a backend verziója **nem tud
@@ -94,11 +95,10 @@ elcsúszni** — ami egy agresszíven cache-elő service worker mellett valós v
 
 # Wiki
 
-**Miért `status: draft` a legtöbb oldal?**
-Mert 2026-07-27-én a repóban **nincs kód**. Az architektúra- és feature-oldalak tervet írnak le,
-nem implementációt. A [döntések](/decisions/index.md) viszont `stable`, mert azok tényleg
-megszülettek. A séma leírja, mit kell frissíteni, amikor egy terv kóddá válik — lásd
-[CLAUDE.md](/CLAUDE.md).
+**Mi maradt `status: draft`?**
+A [deploy](/workflows/deploy.md), a [telepítés iPhone-ra](/workflows/telepites-iphone-ra.md) és a
+[runbookok](/runbooks/index.md) — ezek élesben még nem futottak le. A kód és a feature-oldalak
+`stable`, mert a megvalósítás megvan és lokálisan ellenőrzött.
 
 **Miért `index.md` és nem `_index.md`?**
 Mert az OKF v0.2 az `index.md` és `log.md` neveket fenntartottnak deklarálja, a seed prompt viszont

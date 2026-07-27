@@ -37,8 +37,8 @@ frontmatterrel, a [seed prompt][^seed-prompt] taxonómiája szerint.
 
 | Forrás | Hol | Megjegyzés |
 |---|---|---|
-| A kódbázis | `web/`, `server/`, `Dockerfile` a repo gyökerében | *Még nem létezik* — lásd az állapot-figyelmeztetést lent |
-| Verziótörténet | `git log`, `git show`, `git blame` | A repóban jelenleg **nincs commit** |
+| A kódbázis | `web/`, `server/`, `Dockerfile` a repo gyökerében | Létezik. `web/src/model.ts` a származtatott logika, `server/src/db.js` az adatelérés |
+| Verziótörténet | `git log`, `git show`, `git blame` | Használható |
 | Hosztolt PR-ek/issue-k | github.com/frkandris/marci-app | A `gh` CLI **nincs telepítve** ezen a gépen; ha kell, `brew install gh` |
 | Korábbi munkamenetek | `~/.claude/projects/-Users-p-tothandras-Code-marci-idomero-app/` | Jelenleg egyetlen transcript, a bootstrap-session |
 | Nyers emberi anyag | [`assets/`](/assets/index.md) | Jegyzetek, képernyőképek, beszélgetés-kivonatok |
@@ -48,26 +48,18 @@ te hozol létre, szerkesztesz és törölsz. A wiki a forrásokból származik, 
 
 **3. A séma.** Ez a fájl.
 
-# ⚠️ A wiki jelenlegi állapota: TERV, nem valóság
+# A wiki jelenlegi állapota
 
-**2026-07-27-én a projektnek nincs kódja.** A repo üres. Az [architektúra](/architecture.md), a
-[features/](/features/index.md) és nagyrészt a [workflows/](/workflows/index.md) oldalak **szándékot**
-írnak le, nem implementációt.
+**2026-07-27: az app megvan.** `web/` (React 19 + Vite PWA) + `server/` (Hono + `node:sqlite`) +
+`Dockerfile`; 19 teszt zöld, a felület böngészőben ellenőrizve.
 
-Ezek az oldalak `status: draft` frontmattert viselnek, és a törzsük tetején ott a
-`> **Állapot: tervezett.**` sor.
+Ami még `status: draft`: a [deploy](/workflows/deploy.md), a
+[telepítés iPhone-ra](/workflows/telepites-iphone-ra.md) és a [runbookok](/runbooks/index.md) —
+ezek élesben még nem futottak le. **Amikor lefutottak, váltsd `stable`-re**, töröld a bannert, és
+javítsd, ahol a valóság eltért.
 
-**Amikor egy terv kóddá válik**, a következő a dolgod ugyanabban a commitban:
-
-1. `status: draft` → `status: stable`
-2. A `> **Állapot: tervezett.**` bannert töröld
-3. Tegyél be `file:line` hivatkozásokat a valódi belépési pontokra
-4. Javítsd, ahol a megvalósítás eltért a tervtől — **ne írd felül némán**, hanem a
-   [döntés-oldalon](/decisions/index.md) rögzítsd, hogy miért tért el
-5. Egysoros bejegyzés a [`log.md`](/log.md)-be
-
-A [döntés-oldalak](/decisions/index.md) ezzel szemben **valódiak** és `status: stable` — azok a
-döntések ténylegesen megszülettek, akkor is, ha a kód még nem áll mögöttük.
+A táblázatban felsorolt források most már valódiak: a kódbázis létezik, tehát `file:line`
+hivatkozásokkal kell dolgozni, nem leírással.
 
 # Mikor kell frissíteni a wikit
 

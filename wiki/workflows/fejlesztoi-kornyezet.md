@@ -3,12 +3,9 @@ type: Workflow
 title: Fejlesztői környezet
 description: Repo, futtatás, portok, és a Vite-proxy amiért fejlesztéskor sincs CORS.
 tags: [dev, setup, workflow]
-status: draft
+status: stable
 generated: { by: "anthropic/claude-opus-5", at: "2026-07-27T19:55:00Z" }
 ---
-
-> **Állapot: tervezett.** A `web/` és `server/` mappák még nem léteznek; ez a szándékolt
-> elrendezés. Amint a kód létrejön, ez az oldal `stable`-re vált, valós parancsokkal ellenőrizve.
 
 # Repo
 

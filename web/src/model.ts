@@ -1,0 +1,169 @@
+/**
+ * A határjelölő adatmodell származtatott logikája.
+ * Lásd wiki/decisions/2026-07-27-hatarjelolo-adatmodell.md és
+ *      wiki/decisions/2026-07-27-logikai-napkezdet.md
+ */
+
+/** Pszeudo-tevékenység: "innentől nincs rögzítés". Lezár egy szegmenst anélkül, hogy újat nyitna. */
+export const NONE = '__none__';
+
+/** A logikai nap 04:00-kor kezdődik, hogy az éjszakai alvás egyben maradjon. */
+export const DAY_START_HOUR = 4;
+
+export interface Marker {
+  id: string;
+  at: number;
+  activityId: string;
+  note: string | null;
+}
+
+export interface Activity {
+  id: string;
+  label: string;
+  color: string;
+  icon: string | null;
+  sort: number;
+  /** Archivált típus eltűnik a gombok közül, de a régi szegmensek megmaradnak. */
+  archived: boolean;
+}
+
+export interface Segment {
+  start: number;
+  end: number;
+  activityId: string;
+  markerId: string;
+  /** A szegmens a nap határán túlnyúlik — a megjelenített hossz nem a valódi hossz. */
+  clippedStart: boolean;
+  clippedEnd: boolean;
+}
+
+const pad = (n: number) => String(n).padStart(2, '0');
+
+/** Melyik logikai naphoz tartozik egy időpont. Helyi idő szerint. */
+export function dayKey(at: number, hour = DAY_START_HOUR): string {
+  const d = new Date(at - hour * 3600_000);
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+/**
+ * Egy logikai nap kezdete epoch ms-ben.
+ * Szándékosan `new Date(y, m, d, hour)` — így a nyári időszámítás váltása
+ * helyesen 23 vagy 25 órás napot ad, nem csúszik el a rács.
+ */
+export function dayStartMs(key: string, hour = DAY_START_HOUR): number {
+  const [y, m, d] = key.split('-').map(Number);
+  return new Date(y, m - 1, d, hour, 0, 0, 0).getTime();
+}
+
+export function shiftDayKey(key: string, days: number): string {
+  const [y, m, d] = key.split('-').map(Number);
+  const dt = new Date(y, m - 1, d + days);
+  return `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}`;
+}
+
+export function dayBounds(key: string, hour = DAY_START_HOUR): [number, number] {
+  return [dayStartMs(key, hour), dayStartMs(shiftDayKey(key, 1), hour)];
+}
+
+export const activeMarkers = (all: Marker[]): Marker[] =>
+  [...all].sort((a, b) => a.at - b.at || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+
+export const liveActivities = (all: Activity[]): Activity[] =>
+  all.filter((a) => !a.archived).sort((a, b) => a.sort - b.sort);
+
+/**
+ * A `[from, to)` intervallumra eső szegmensek.
+ *
+ * A carry-in a modell legkönnyebben elrontható pontja: a nap első szegmensét
+ * szinte mindig egy ELŐZŐ napi marker definiálja (az esti alvás). Ezért indul
+ * a bejárás a `from` előtti utolsó markertől, nem a napon belüli elsőtől.
+ */
+export function segmentsFor(all: Marker[], from: number, to: number, now: number): Segment[] {
+  const ms = activeMarkers(all);
+  const out: Segment[] = [];
+
+  let i = 0;
+  while (i < ms.length && ms[i].at <= from) i++;
+  const startIdx = i > 0 ? i - 1 : 0;
+
+  for (let j = startIdx; j < ms.length; j++) {
+    const m = ms[j];
+    if (m.at >= to) break;
+    const rawEnd = ms[j + 1] ? ms[j + 1].at : now;
+    const start = Math.max(m.at, from);
+    const end = Math.min(rawEnd, to);
+    if (end <= start) continue;
+    if (m.activityId === NONE) continue;
+    out.push({
+      start,
+      end,
+      activityId: m.activityId,
+      markerId: m.id,
+      clippedStart: m.at < from,
+      clippedEnd: rawEnd > to,
+    });
+  }
+  return out;
+}
+
+/** A `[from, to)`-ba eső markerek — ezek fogantyúi húzhatók az idővonalon. */
+export function markersIn(all: Marker[], from: number, to: number): Marker[] {
+  return activeMarkers(all).filter((m) => m.at >= from && m.at < to);
+}
+
+/**
+ * Meddig húzható egy marker: szigorúan a két szomszédja közé.
+ * Így nem tolja maga előtt a többit, és nem keletkezhet nulla hosszú szegmens.
+ */
+export function dragBounds(all: Marker[], markerId: string): [number, number] {
+  const ms = activeMarkers(all);
+  const i = ms.findIndex((m) => m.id === markerId);
+  if (i < 0) return [-Infinity, Infinity];
+  return [ms[i - 1] ? ms[i - 1].at + 1 : -Infinity, ms[i + 1] ? ms[i + 1].at - 1 : Infinity];
+}
+
+/**
+ * A jelenleg futó tevékenység: az utolsó olyan marker, ami MÁR elkezdődött.
+ *
+ * A `now` szűrés nem elméleti: egy elgépelt visszamenőleges rögzítés jövőbeli
+ * markert hoz létre, és enélkül az válna „futóvá" — a stopper 0:00-t mutatna,
+ * a képernyő pedig egy még meg sem történt tevékenységet.
+ */
+export function runningMarker(all: Marker[], now = Date.now()): Marker | null {
+  const started = activeMarkers(all).filter((m) => m.at <= now);
+  const last = started[started.length - 1];
+  if (!last || last.activityId === NONE) return null;
+  return last;
+}
+
+export const SNAP_MS = 5 * 60_000;
+export const snap = (t: number, grid = SNAP_MS) => Math.round(t / grid) * grid;
+
+const hhmm = new Intl.DateTimeFormat('hu-HU', { hour: '2-digit', minute: '2-digit' });
+export const fmtTime = (t: number) => hhmm.format(new Date(t));
+
+export function fmtDuration(ms: number): string {
+  const total = Math.max(0, Math.round(ms / 60_000));
+  const h = Math.floor(total / 60);
+  const m = total % 60;
+  return h > 0 ? `${h} ó ${m} p` : `${m} p`;
+}
+
+export function fmtClock(ms: number): string {
+  const s = Math.max(0, Math.floor(ms / 1000));
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
+  return h > 0 ? `${h}:${pad(m)}:${pad(sec)}` : `${m}:${pad(sec)}`;
+}
+
+const dayFmt = new Intl.DateTimeFormat('hu-HU', { month: 'short', day: 'numeric' });
+const dayFmtLong = new Intl.DateTimeFormat('hu-HU', {
+  year: 'numeric',
+  month: 'long',
+  day: 'numeric',
+  weekday: 'long',
+});
+export const fmtDay = (key: string) => dayFmt.format(new Date(dayStartMs(key) + 12 * 3600_000));
+export const fmtDayLong = (key: string) =>
+  dayFmtLong.format(new Date(dayStartMs(key) + 12 * 3600_000));

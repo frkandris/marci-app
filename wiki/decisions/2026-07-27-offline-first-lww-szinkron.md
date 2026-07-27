@@ -3,7 +3,7 @@ type: Decision
 title: Offline-first, last-write-wins szinkronnal
 description: A UI soha nem vár hálózatra; a két telefon LWW-vel fésülődik össze, kliens edited_at alapján, szerver seq kurzorral.
 tags: [sync, offline, data-model]
-status: stable
+status: deprecated
 generated: { by: "anthropic/claude-opus-5", at: "2026-07-27T18:35:00Z" }
 sources:
   - id: session
@@ -12,6 +12,13 @@ sources:
     author: human:frkandris
     last_modified: 2026-07-27
 ---
+
+> **⚠️ FELÜLÍRVA 2026-07-27-én.** Utód: [Online-only — a szerver az egyetlen
+> igazságforrás](/decisions/2026-07-27-online-only.md). A felhasználó felülvizsgálta a kiinduló
+> feltevést („mindig nethez vagyunk kapcsolódva"), amivel az itt leírt teljes gépezet — IndexedDB,
+> `dirty` jelölés, LWW, `seq` kurzor — indoklás nélkül maradt. **Az alábbi tartalom történeti**:
+> azt rögzíti, miért tűnt jó döntésnek akkor, és mi lenne a helyes megoldás, ha az offline-igény
+> visszatérne.
 
 # Kontextus
 
@@ -70,7 +77,7 @@ determinisztikus, a sorrendtől független döntést ad.
 
 - **Mezőnkénti merge nincs.** A későbbi `edited_at` a *teljes* rekordot felülírja. Ha az egyik
   telefonon a jegyzet, a másikon az időpont módosul konkurensen, az egyik változás elveszik.
-  Dokumentált korlát, lásd [architektúra](/architecture.md#amit-ez-a-protokoll-tudatosan-nem-old-meg).
+  Ez a korlát a felülírással tárgytalanná vált — lásd [online-only](/decisions/2026-07-27-online-only.md).
 - **A törlés is csak egy mező.** A `deleted_at` ugyanazon az LWW-n megy át; a sorok soha nem
   törlődnek fizikailag, mert egy tényleges `DELETE` a másik eszköz `since`-kurzora számára
   láthatatlan lenne, és a sor feltámadna.

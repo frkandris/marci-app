@@ -1,82 +1,65 @@
 ---
 type: Feature
-title: Szinkronizáció (kliensoldal)
-description: Dirty flag, kurzor, és a kérdés, hogy mikor fut a szinkron — iOS-en ez nem magától értetődő.
-tags: [sync, offline, ios, core]
-status: draft
-generated: { by: "anthropic/claude-opus-5", at: "2026-07-27T19:40:00Z" }
+title: Adatfrissítés és többeszközös használat
+description: Hogyan látja meg az egyik telefon a másik változásait — és mi történik, ha elmegy a hálózat.
+tags: [rest, multi-device, core]
+status: stable
+generated: { by: "anthropic/claude-opus-5", at: "2026-07-27T21:45:00Z" }
 ---
 
-> **Állapot: tervezett.** Még nincs implementálva.
+> **Ez az oldal 2026-07-27-én át lett írva.** Korábban egy offline-first szinkronmechanizmust
+> írt le (IndexedDB, `dirty`, LWW, `seq`). Azt az
+> [online-only döntés](/decisions/2026-07-27-online-only.md) váltotta fel.
 
-A protokoll szerveroldali fele és az LWW-szabály az
-[architektúrában](/architecture.md#szinkronprotokoll) van; a *miért* pedig az
-[offline-first döntésben](/decisions/2026-07-27-offline-first-lww-szinkron.md). Ez a lap a
-kliensoldali mechanikáról szól.
+# Az alapszabály
 
-# A lokális állapot
+**A szerver az egyetlen igazságforrás.** A kliens nem tárol semmit tartósan: minden művelet
+közvetlen REST-hívás, és a válaszban visszakapott sor kerül a React-állapotba.
 
-Az IndexedDB két store-t tart (`markers`, `activities`), és minden rekord hordoz egy lokális,
-**nem szinkronizált** `dirty: boolean` mezőt. Emellett egy `meta` store tárolja a
-`lastSeq` kurzort és a `deviceId`-t (első indításkor generált UUID, azután állandó).
+Ez azt jelenti, hogy a két telefon soha nem „fésülődik össze" — egyszerűen ugyanazt olvassa.
+Nincs ütközés, mert nincs két verzió.
 
-Az alapszabály: **minden felhasználói művelet lokális írás + `dirty: true`, és semmi más.** A UI
-soha nem vár hálózatra, soha nem mutat hálózati hibát rögzítés közben.
-
-# Mikor fut a szinkron
-
-Ez a lap legfontosabb része, mert iOS-en **nincs Background Sync API** — lásd
-[iOS Safari PWA](/integrations/ios-safari-pwa.md). Nem lehet megbízni abban, hogy a rendszer
-majd elintézi. A szinkron kizárólag akkor futhat, ha az app **előtérben van**:
+# Mikor frissül az adat
 
 | Kiváltó ok | Miért |
 |---|---|
-| App indítása | A leggyakoribb belépési pont |
-| `visibilitychange` → látható | Ez pótolja a Background Syncet: minden előtérbe kerülés egy szinkronpont |
-| Sikeres lokális írás után, **debounce-olva** (~3 mp) | Hogy a gyors egymásutáni rögzítések egy kérésbe menjenek |
-| `online` esemény | Hálózat visszatérésekor azonnal |
-| Kézi húzás lefelé az áttekintőn | Mert néha az ember tudni akarja, hogy naprakész-e |
+| App indítása | A belépési pont |
+| `visibilitychange` → látható | A leggyakoribb eset: előveszed a telefont, és azonnal friss adatot akarsz látni |
+| **30 másodpercenként**, amíg az app látható | Ez a felső korlát arra, hogy a másik telefon változása mennyi idő alatt jelenik meg |
+| `online` esemény | Hálózat visszatérésekor |
+| A fejléc pöttyére koppintva | Kézi frissítés |
 
-**Nem fut** időzítve a háttérben, és nem fut, amíg az app be van zárva. Következmény: ha az egyik
-telefont napokig nem nyitják meg, addig nem is szinkronizál. Ez rendben van — a `seq`-kurzoros
-modell akármilyen régi kurzort behoz, egyetlen kéréssel.
+Háttérben **nem** kérdezget: ha az app nincs előtérben, nincs értelme.
 
-# Egy szinkronciklus
+**A mutációk nem váltanak ki teljes újratöltést.** A `POST`/`PATCH` visszaadja a mentett sort, és
+csak azt írjuk vissza az állapotba. Enélkül minden idővonal-húzás után egy teljes lekérés futna,
+és a felület akadozna.
 
-```
-1. dirty = minden rekord, ahol dirty === true
-2. POST /api/changes  { since: lastSeq, markers: dirty.markers, activities: dirty.activities }
-3. a válasz beolvasztása:
-     minden érkező sorra: ha a lokális példány dirty ÉS a lokális edited_at nagyobb
-                          → a lokálisat tartjuk meg (a következő körben újra felmegy)
-                          különben → felülírjuk a szerverivel
-4. lastSeq = válasz.serverSeq
-5. a felküldött és a szerver által elfogadott sorokon dirty = false
-```
+# Hibakezelés — ami itt megfordult
 
-**A 3. lépés feltétele nem elhagyható.** Ha a válasz beolvasztása közben a felhasználó éppen
-szerkesztett valamit (ami tipikus: a szinkron a háttérben fut, miközben az ember az idővonalat
-húzogatja), a friss lokális módosítás **elveszne**, ha vakon felülírnánk. Az `edited_at`
-összehasonlítása ugyanaz a szabály, amit a szerver is alkalmaz — ezért konvergál a két oldal.
+Offline-first alatt a hálózati hiba **elrejtendő** volt: a `dirty` jelölés majd újrapróbálja, a
+felhasználót nem zavarjuk. Online-only alatt ez megfordul: **a hiba jelzendő, mert magától nem
+javul.**
 
-**Az 5. lépés sorrendje számít.** A `dirty` jelölést **csak a válasz megérkezése és sikeres
-beolvasztása után** szabad törölni. Ha előbb törölnénk és a kérés elhasalna, a változás némán
-eltűnne — soha többé nem menne fel.
+- **Mentés elszállt** → hibasáv a fejléc alatt, konkrét okkal. A rögzítés **nem történt meg**;
+  a felhasználónak tudnia kell, hogy újra kell nyomnia.
+- **Lekérés elszállt** → a korábban betöltött adat a képernyőn marad, és a hibasáv jelzi, hogy
+  elavult lehet. Üres képernyőt mutatni rosszabb lenne, mint egy kicsit régi adatot.
+- A státuszpötty a fejlécben: zöld (rendben), lila villogó (tölt), piros (hiba).
 
-# Hibakezelés
+# Mennyi adatot tölt be
 
-- **Hálózati hiba**: nincs teendő. A `dirty` marad, a következő kiváltó ok újrapróbálja.
-  A felhasználót **nem zavarjuk** ezzel.
-- **5xx**: ugyanaz, mint a hálózati hiba.
-- **4xx**: ez viszont hibás kliens, és **jelezni kell**, mert magától nem javul.
-- **Egymást átfedő szinkronok**: egyszerre csak egy futhat. Egy egyszerű futás-jelző elég; a
-  közben érkező kérések eldobhatók, mert a következő kiváltó ok úgyis mindent felvisz.
+Az app egy **ablakot** tart a memóriában: alapból a mai naptól visszamenőleg 45 nap (plusz a
+holnapi nap kezdetéig, hogy a késő esti rögzítés is beleférjen). A Napok nézet „Korábbi napok"
+gombja 30 naponként bővíti.
 
-# Amit a felhasználó lát ebből
+Ez bőven elég: 45 nap × ~12 marker ≈ 540 sor, néhány tíz kilobájt.
 
-Majdnem semmit — és ez a cél. Egyetlen diszkrét jelzés kell:
+# Amit ez tudatosan nem old meg
 
-**ha van fel nem szinkronizált változás, az látszódjon.** Nem hibaként, hanem állapotként (pl. egy
-kis pont a fejlécben). Ennek konkrét oka van: iOS-en **a kezdőképernyős ikon törlése törli a
-lokális tárat**, tehát a fel nem töltött adat elveszik. Ha a felhasználó látja, hogy van
-függőben lévő változás, van esélye előbb hálózatot keresni.
+- **Hálózat nélkül az app nem használható.** Ez a
+  [döntés](/decisions/2026-07-27-online-only.md) tudatosan vállalt ára.
+- **Nincs élő push.** Ha a 30 másodperces késleltetés valaha kevés lesz, a következő lépés SSE
+  vagy WebSocket — **nem** a szinkronmechanizmus visszahozása.
+- **Egyidejű szerkesztés esetén az utolsó kérés nyer**, mert az fut le utoljára a szerveren.
+  Nincs figyelmeztetés arról, hogy a másik telefon közben módosított. Két embernél ez elfogadható.

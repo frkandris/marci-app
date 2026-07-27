@@ -3,12 +3,11 @@ type: Feature
 title: Tevékenységtípusok és színek
 description: A kezdő paletta, a __none__ pszeudotípus, és miért szerkeszthető a lista.
 tags: [ui, dataviz, color, data-model]
-status: draft
+status: stable
 generated: { by: "anthropic/claude-opus-5", at: "2026-07-27T19:35:00Z" }
 ---
 
-> **Állapot: tervezett.** Még nincs implementálva. A hex-értékek **javaslatok**, amiket az
-> implementációkor kontrasztra ellenőrizni kell — lásd lentebb.
+> **Megvalósítva** 2026-07-27-én. Belépési pont: `web/src/views/Settings.tsx, server/src/db.js`
 
 # Miért szerkeszthető a lista
 

@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="hu">
+  <head>
+    <meta charset="UTF-8" />
+    <!-- viewport-fit=cover: enélkül a home indicator eltakarná az alsó gombsávot -->
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no"
+    />
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#f7f7f9" />
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0e1014" />
+    <meta name="description" content="Marci napi időtöltéseinek rögzítése" />
+    <meta name="robots" content="noindex, nofollow" />
+
+    <!-- iOS-en a manifest icons mezője önmagában nem elég; ez kell a kezdőképernyős ikonhoz -->
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Marci" />
+
+    <title>Marci</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

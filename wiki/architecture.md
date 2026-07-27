@@ -1,11 +1,11 @@
 ---
 type: Architecture
 title: Architektúra
-description: A Marci időmérő tervezett felépítése — rétegek, adatmodell, szinkronprotokoll, és egy végigvezetett példa.
-tags: [architecture, pwa, sync, sqlite]
-status: draft
-generated: { by: "anthropic/claude-opus-5", at: "2026-07-27T18:20:00Z" }
-stale_after: 2026-10-31
+description: A Marci időmérő felépítése — rétegek, adatmodell, REST API, és egy végigvezetett példa.
+tags: [architecture, pwa, rest, sqlite]
+status: stable
+generated: { by: "anthropic/claude-opus-5", at: "2026-07-27T21:40:00Z" }
+stale_after: 2026-12-31
 sources:
   - id: session
     resource: /assets/2026-07-27-terv-beszelgetes.md
@@ -14,30 +14,25 @@ sources:
     last_modified: 2026-07-27
 ---
 
-> **Állapot: tervezett.** 2026-07-27-én ebből egyetlen sor kód sem létezik. Ez a lap a szándékot
-> rögzíti, hogy az implementáció ne induljon el újra a nulláról. Amint a kód megszületik, ez az
-> oldal `stable`-re vált, `file:line` hivatkozásokkal — lásd a [séma](/CLAUDE.md) állapotszakaszát.
-
 # A rendszer egy mondatban
 
 Egy Node-konténer fut a Hetzner-szerveren Coolify alatt; ugyanaz a folyamat szolgálja ki a React
 PWA statikus buildjét és a `/api` végpontokat; az adat egyetlen SQLite-fájlban él egy volume-on;
-a két iPhone lokálisan, IndexedDB-be ír azonnal, és a háttérben szinkronizál.
+a két iPhone közvetlenül ezt írja és olvassa.
 
 ```
    iPhone A                        iPhone B
  ┌──────────────┐               ┌──────────────┐
  │  React PWA   │               │  React PWA   │
- │  IndexedDB   │◀── igazság    │  IndexedDB   │
- │  (dirty set) │    lokálisan  │  (dirty set) │
+ │ (React state)│               │ (React state)│
  └──────┬───────┘               └──────┬───────┘
-        │  GET/POST /api/changes        │
+        │   REST + 30 mp-es lekérdezés │
         └───────────────┬───────────────┘
                         ▼
         ┌───────────────────────────────┐
         │  Hetzner + Coolify v4.1.2     │
         │  ┌─────────────────────────┐  │
-        │  │ Docker: node:22-alpine  │  │
+        │  │ Docker: node:24-alpine  │  │
         │  │  Hono                   │  │
         │  │   ├── /api/*   JSON     │  │
         │  │   └── /*       statikus │  │
@@ -47,22 +42,28 @@ a két iPhone lokálisan, IndexedDB-be ír azonnal, és a háttérben szinkroniz
         └───────────────────────────────┘
 ```
 
+**A szerver az egyetlen igazságforrás.** Nincs kliensoldali perzisztens tár, nincs
+ütközésfeloldás — lásd [online-only döntés](/decisions/2026-07-27-online-only.md).
+
 # Rétegek
 
-| Réteg | Mi | Miért így |
+| Réteg | Mi | Fájl |
 |---|---|---|
-| `web/` | React 19 + TypeScript + Vite + `vite-plugin-pwa` | A `vite-plugin-pwa` generálja a manifestet és a Workbox service workert; az iOS-nek nincs `beforeinstallprompt`-ja, ezért a telepítés kézi — lásd [iOS Safari PWA](/integrations/ios-safari-pwa.md) |
-| Lokális tár | IndexedDB, `idb` wrapperrel | Az egyetlen írható igazság a kliensen. A UI **soha nem vár a hálózatra.** |
-| Szinkron | Saját, `GET`/`POST /api/changes` | Két eszközre a CRDT túllövés; a [LWW döntés](/decisions/2026-07-27-offline-first-lww-szinkron.md) indokolja |
-| `server/` | Node 22 + Hono + `better-sqlite3` | A Hono kicsi és gyors; a `better-sqlite3` szinkron API-ja egyszálas Node-on tranzakcióban a legegyszerűbb helyes megoldás |
-| Adattár | SQLite, `/data/marci.db` | [Döntés](/decisions/2026-07-27-sqlite-adattar.md) |
-| Futtatás | Egy Docker-image, egy port | [Döntés](/decisions/2026-07-27-egy-konteneres-deploy.md) |
+| UI | React 19 + TypeScript + Vite + `vite-plugin-pwa` | `web/src/App.tsx`, `web/src/views/` |
+| Származtatott logika | Szegmensek, logikai nap, húzási korlátok | `web/src/model.ts` |
+| Adatelérés | REST-kliens + React-állapot | `web/src/store.ts` |
+| HTTP | Hono; `/api/*` és statikus kiszolgálás | `server/src/index.js` |
+| Adattár | SQLite a beépített `node:sqlite`-tal | `server/src/db.js` |
+
+**Nincs natív függőség.** Az SQLite a Node beépített `node:sqlite` modulja, nem a
+`better-sqlite3` — ezért az alpine image elég, és nincs fordítási lépés a Dockerben. Ez eltérés
+az [SQLite-döntés](/decisions/2026-07-27-sqlite-adattar.md) eredeti tervétől; az indoklás
+(egy fájl, egy volume, triviális mentés) változatlanul áll.
 
 # Az adatmodell: határjelölők
 
-Ez a rendszer legfontosabb terve. A teljes indoklás a
-[határjelölő adatmodell döntésben](/decisions/2026-07-27-hatarjelolo-adatmodell.md) van; itt a
-mechanika.
+A rendszer legfontosabb terve. A teljes indoklás a
+[határjelölő adatmodell döntésben](/decisions/2026-07-27-hatarjelolo-adatmodell.md) van.
 
 A nap nem intervallumok halmaza, hanem **határjelölők (marker) idő szerint rendezett sorozata**.
 Egy marker azt jelenti: *„ettől a pillanattól ez történik"*. A szegmens a következő marker
@@ -76,135 +77,98 @@ időpontjáig tart.
    marker       marker       marker       marker
 ```
 
-Ebből következik, amit így ingyen kapunk:
+Amit ez ingyen ad:
 
-- **Nincs átfedés.** Konstrukcióból, nem ellenőrzésből.
-- **A húzogatás egyetlen mező írása.** Egy határ mozgatása egyszerre zárja korábban az előzőt és
-  kezdi később a következőt — pontosan az, amit a felhasználó „valami véget ér, és valami
-  következő kezdődik" alatt ért.
-- **A „hoppá, mégsem aludt el" javítás** háromféle triviális művelet: a marker húzása, a
-  típusának átírása, vagy a törlése (a szomszédos szegmens ilyenkor összeolvad).
-- **A futó tevékenység** nem külön állapot: egyszerűen a legutolsó marker, aminek még nincs
-  rákövetkezője.
+- **Nincs átfedés** — konstrukcióból, nem ellenőrzésből.
+- **A húzogatás egyetlen mező írása** (`at`). Egy határ mozgatása egyszerre zárja korábban az
+  előzőt és kezdi később a következőt.
+- **A törlés két szegmenst összeolvaszt**, magától.
+- **A futó tevékenység** nem külön állapot: az utolsó marker, ami **már elkezdődött**
+  (`at <= now`). A `now` szűrés nem elméleti — egy elgépelt visszamenőleges rögzítés jövőbeli
+  markert hoz létre, és enélkül az válna „futóvá".
 
-A `__none__` egy **pszeudo-tevékenység**: „innentől nincs rögzítés". Ez zár le egy szegmenst
-anélkül, hogy újat nyitna — enélkül a modell nem tudna lyukat kifejezni.
+A `__none__` **pszeudo-tevékenység**: „innentől nincs rögzítés". Ez zár le egy szegmenst anélkül,
+hogy újat nyitna — enélkül a modell nem tudna lyukat kifejezni.
 
 ## SQLite-séma
 
 ```sql
 CREATE TABLE markers (
-  id          TEXT    PRIMARY KEY,   -- crypto.randomUUID(), a kliens adja
-  at          INTEGER NOT NULL,      -- epoch ms — az esemény VALÓS ideje
+  id          TEXT    PRIMARY KEY,   -- UUID
+  at          INTEGER NOT NULL,      -- epoch ms — az esemény valós ideje
   activity_id TEXT    NOT NULL,      -- activities.id, vagy '__none__'
-  note        TEXT,
-  device_id   TEXT    NOT NULL,      -- melyik telefon rögzítette
-  edited_at   INTEGER NOT NULL,      -- epoch ms, KLIENSÓRA — az ütközés ezen dől el
-  deleted_at  INTEGER,               -- soft delete; a sor sosem tűnik el
-  seq         INTEGER NOT NULL       -- SZERVER által osztott, monoton — a szinkronkurzor
+  note        TEXT
 );
-CREATE INDEX markers_seq ON markers(seq);
-CREATE INDEX markers_at  ON markers(at);
+CREATE INDEX markers_at ON markers(at);
 
 CREATE TABLE activities (
-  id         TEXT    PRIMARY KEY,
-  label      TEXT    NOT NULL,
-  color      TEXT    NOT NULL,       -- hex, lásd features/tevekenysegtipusok.md
-  icon       TEXT,
-  sort       INTEGER NOT NULL,
-  edited_at  INTEGER NOT NULL,
-  deleted_at INTEGER,
-  seq        INTEGER NOT NULL
+  id       TEXT    PRIMARY KEY,
+  label    TEXT    NOT NULL,
+  color    TEXT    NOT NULL,
+  icon     TEXT,
+  sort     INTEGER NOT NULL,
+  archived INTEGER NOT NULL DEFAULT 0
 );
-
-CREATE TABLE meta (k TEXT PRIMARY KEY, v TEXT);  -- itt él a globális seq-számláló
 ```
 
-**A három időbélyeg különbözik, és a keverésük a legvalószínűbb jövőbeli hiba forrása:**
+**Egyetlen időbélyeg van, az `at`** — az, ami a felhasználót érdekli. (Korábban három volt; a
+felcserélésük volt a legvalószínűbb hibaforrás. Az
+[online-only döntés](/decisions/2026-07-27-online-only.md) szüntette meg ezt az egész
+osztályt.)
 
-| Mező | Kinek az órája | Mire való | Módosítja a felhasználó? |
-|---|---|---|---|
-| `at` | kliens | az esemény valós ideje | **Igen** — ezt húzogatja az idővonalon |
-| `edited_at` | kliens | ütközésfeloldás (LWW) | Nem, automatikus |
-| `seq` | **szerver** | szinkronkurzor | Nem, a szerver osztja |
+**Az `archived` viszont megmaradt**, és nem a szinkron miatt: ha egy tevékenységtípust fizikailag
+törölnénk, a rá hivatkozó **régi markerek árván maradnának**, és a múltbeli napok
+olvashatatlanná válnának.
 
-Azért kell mindkettő, mert **külön problémát oldanak meg**: a `seq` monoton és megbízható kurzor
-(a kliensórák elcsúszhatnak, így kurzornak alkalmatlanok), az `edited_at` viszont azt fejezi ki,
-hogy *mikor döntött úgy az ember*, ami az ütközésnél a helyes kérdés. Ha az `edited_at`-tel
-kurzoroznánk, egy hátraállított telefonóra örökre elrejtene sorokat.
+# REST API
 
-# Szinkronprotokoll
+| Végpont | Mit csinál |
+|---|---|
+| `GET /api/health` | `{ok, web}`. **A frontend meglétét is nézi** — a Docker build fázisa csendben elhasalhat úgy, hogy a szerver elindul, de csak 404-et ad |
+| `GET /api/markers?from&to` | A `[from, to)` markerei **plusz a carry-in** — lásd lent |
+| `POST /api/markers` | `{at, activityId, note?}` → a létrehozott sor |
+| `PATCH /api/markers/:id` | Részleges módosítás → a mentett sor |
+| `DELETE /api/markers/:id` | Valódi törlés (204) |
+| `GET /api/activities` | Az összes típus, az archiváltakkal együtt |
+| `PUT /api/activities/:id` | Upsert |
+| `DELETE /api/activities/:id` | Archiválás (nem törlés) |
 
-Két végpont, mindkettő idempotens.
+Az ismeretlen `/api/*` útvonal **JSON 404-et** ad, nem esik át az SPA-fallbackre — különben
+`index.html` jönne 200-zal, ami a kliensen JSON-parse hibaként jelentkezne.
 
-**`GET /api/changes?since=<seq>`** → mindaz, ami a kurzor óta változott:
+## A carry-in — a rendszer legkönnyebben elrontható pontja
 
-```json
-{
-  "serverSeq": 412,
-  "markers":    [ { "id": "...", "at": 1785000000000, "activityId": "furdes",
-                    "deviceId": "iphone-a", "editedAt": 1785000012345,
-                    "deletedAt": null, "seq": 411 } ],
-  "activities": [ /* ugyanez a forma */ ]
-}
-```
+A `GET /api/markers?from&to` **mindig elhozza a `from` előtti utolsó markert is.**
 
-**`POST /api/changes`** → a kliens elküldi a piszkos (`dirty`) sorait, és ugyanazt a választ kapja
-vissza, mint a `GET`-nél, a saját `since`-étől:
+Ez nem kényelmi extra: a nap első szegmensét szinte mindig egy **előző napi** marker definiálja
+(az esti alvás, ami átnyúlik éjfélen). Enélkül a nap eleje üresen jelenne meg — és ez
+adatvesztésnek látszik, pedig lekérdezési hiba.
 
-1. A szerver **tranzakcióban** minden beérkező sorra alkalmazza az LWW-szabályt:
-   ```
-   a beérkező nyer, ha  incoming.edited_at > existing.edited_at
-                    vagy (egyenlőség esetén) incoming.device_id > existing.device_id
-   ```
-   A `device_id`-s holtversenytörés nem szépészet: enélkül két eszköz **eltérő** végállapotra
-   konvergálhat, ha ugyanabban az ezredmásodpercben szerkesztettek, és az LWW ígérete megtörik.
-2. Minden ténylegesen megváltozott sor **friss `seq`-et kap** (`meta.seq_counter` inkrementálva).
-3. A válaszban a kliens megkapja a beolvasztott állapotot; a `dirty` jelölést csak ezután törli.
-
-**A kliens oldali szabály:** a lokális írás azonnal megtörténik és `dirty`-nek jelölődik. A
-szinkron indul appindításkor, `visibilitychange`-nél (előtérbe kerülés), sikeres írás után
-debounce-olva, és `online` eseménynél. **Nem indul** időzítve a háttérben — iOS-en nincs
-Background Sync, lásd [iOS Safari PWA](/integrations/ios-safari-pwa.md).
-
-Bővebben a kliensoldalról: [features/szinkronizacio.md](/features/szinkronizacio.md).
-
-## Amit ez a protokoll tudatosan NEM old meg
-
-- **Szerkesztés-egyesítés.** Ha mindkét telefon ugyanazt a markert módosítja offline, a
-  későbbi `edited_at` **teljesen** felülírja a másikat, mezőnként nincs merge. Két családi
-  telefonnál ez elfogadható; egy csapatnál nem lenne az.
-- **Törlés–szerkesztés verseny.** A `deleted_at` is csak egy mező, ugyanaz az LWW dönt: ha a
-  törlés `edited_at`-je későbbi, a törlés nyer.
-- **Kliensóra-manipuláció.** Ha valaki előreállítja a telefonja óráját, az `edited_at`-jei
-  megnyerik az összes ütközést. Nem védekezünk ellene.
+A szabály **szerveroldali**, és szervertesztek őrzik (`server/test/db.test.js`).
 
 # Végigvezetett példa: „elkezdődött a fürdés"
 
-Ez a minta, amit minden új feature követ. A rétegeken végig egyetlen művelet:
+Ez a minta, amit minden új feature követ:
 
 1. **UI** — [`features/gyorsrogzites.md`](/features/gyorsrogzites.md). Az apa megnyomja a
-   „Fürdés" gombot a főképernyőn.
-2. **Domain** — létrejön egy marker: `{ id: crypto.randomUUID(), at: Date.now(),
-   activityId: 'furdes', deviceId: <sajat>, editedAt: Date.now(), deletedAt: null }`.
-   Az `at` és az `editedAt` most **véletlenül** azonos; egy későbbi húzogatásnál már nem lesz az.
-3. **Lokális tár** — IndexedDB `markers` store, `dirty: true` jelöléssel. **Egy tranzakció, nincs
-   `await` hálózatra.**
-4. **UI-visszajelzés** — a store-változás azonnal újrarendereli a képernyőt: a „Fürdés" lesz a futó
-   tevékenység, indul a stopper. A felhasználó ekkorra már kész van; minden további háttérmunka.
-5. **Szinkron** — a debounce-olt scheduler `POST /api/changes`-t küld a dirty sorokkal.
-6. **Szerver** — LWW-tranzakció, új `seq`, írás az SQLite-ba.
-7. **Válasz** — a kliens megkapja a beolvasztott sort, frissíti a `seq`-et, törli a `dirty`-t.
-8. **A másik telefon** — a következő előtérbe kerülésekor `GET /api/changes?since=<sajat seq>`,
-   és megjelenik a fürdés.
+   „Fürdés" gombot. → `web/src/views/Capture.tsx`
+2. **Akció** — `addMarker('furdes')` → `POST /api/markers` a `{at: Date.now(), activityId}`
+   törzzsel. → `web/src/store.ts`
+3. **Szerver** — validál, beszúr, és **visszaadja a mentett sort**. → `server/src/index.js`
+4. **Állapot** — a kliens a visszakapott sort beírja a React-állapotba. **Nincs teljes
+   újratöltés** — ez az, ami a húzogatást is folyamatossá teszi.
+5. **Render** — a `model.ts` a markerlistából újraszámolja a szegmenseket; a „Fürdés" lesz a futó
+   tevékenység, indul a stopper.
+6. **A másik telefon** — a következő előtérbe kerüléskor vagy legfeljebb 30 másodpercen belül
+   lekéri és megjeleníti.
 
-Ha a 5–8. lépés bármelyike elhasal (nincs net, alszik a szerver), **a felhasználó nem vesz észre
-semmit**: a marker lokálisan megvan, `dirty` marad, és a következő alkalommal megy fel. Ez az
-offline-first ígéret teljes tartalma.
+Ha a 3. lépés elhasal (nincs hálózat, alszik a szerver), **a felhasználó látja**: hibasáv jelenik
+meg, és a rögzítés nem történt meg. Ez tudatos csere az offline-first ellenében — lásd
+[online-only döntés](/decisions/2026-07-27-online-only.md).
 
 # Kapcsolódó
 
-- [Glosszárium](/glossary.md) — marker, szegmens, logikai nap, LWW, `seq`, dirty
+- [Glosszárium](/glossary.md) — marker, szegmens, logikai nap, carry-in
 - [features/napi-idovonal.md](/features/napi-idovonal.md) — hogyan lesz a húzogatásból `at`-írás
 - [runbooks/mentes-visszaallitas.md](/runbooks/mentes-visszaallitas.md) — mert egyetlen fájlban
   van minden adat

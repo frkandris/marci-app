@@ -3,11 +3,11 @@ type: Feature
 title: Többnapos áttekintés
 description: Napok egymás alatt, azonos időtengelyen, színkódolva — itt válik láthatóvá a minta.
 tags: [ui, dataviz, timeline]
-status: draft
+status: stable
 generated: { by: "anthropic/claude-opus-5", at: "2026-07-27T19:30:00Z" }
 ---
 
-> **Állapot: tervezett.** Még nincs implementálva.
+> **Megvalósítva** 2026-07-27-én. Belépési pont: `web/src/views/Overview.tsx`
 
 # Mit ad
 

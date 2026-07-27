@@ -3,11 +3,11 @@ type: Feature
 title: Gyorsrögzítés
 description: A főképernyő — egy koppintás rögzíti, hogy most kezdődött egy tevékenység, élő stopperrel.
 tags: [ui, core, capture]
-status: draft
+status: stable
 generated: { by: "anthropic/claude-opus-5", at: "2026-07-27T19:20:00Z" }
 ---
 
-> **Állapot: tervezett.** Még nincs implementálva.
+> **Megvalósítva** 2026-07-27-én. Belépési pont: `web/src/views/Capture.tsx`
 
 # Mit ad
 

@@ -3,11 +3,11 @@ type: Feature
 title: Napi idővonal
 description: A nap egyetlen sávon, húzható határokkal — az utólagos javítás helye.
 tags: [ui, core, timeline, editing]
-status: draft
+status: stable
 generated: { by: "anthropic/claude-opus-5", at: "2026-07-27T19:25:00Z" }
 ---
 
-> **Állapot: tervezett.** Még nincs implementálva.
+> **Megvalósítva** 2026-07-27-én. Belépési pont: `web/src/views/Day.tsx`
 
 # Mit ad
 

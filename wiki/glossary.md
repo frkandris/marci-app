@@ -13,9 +13,8 @@ akkor vedd fel, ha itt speciális jelentésük van.
 
 # Adatmodell
 
-**Marker** (határjelölő) — A tárolt alapegység. Jelentése: *„ettől a pillanattól ez történik"*.
-Mezői közül a három időbélyeg (`at`, `edited_at`, `seq`) különböző dolgot jelent, és a keverésük a
-legvalószínűbb hibaforrás — lásd
+**Marker** (határjelölő) — A tárolt alapegység: `{id, at, activityId, note}`. Jelentése: *„ettől a
+pillanattól ez történik"*. **Egyetlen időbélyege van**, az `at` — lásd
 [architektúra](/architecture.md#az-adatmodell-határjelölők).
 
 **Szegmens** — Két egymást követő marker közti időszak. **Nincs tárolva**, a rendezett
@@ -24,13 +23,6 @@ de az adatbázisban markerek vannak.
 
 **`at`** — A marker mezője: az esemény **valós ideje**, epoch ms-ben. Ez az egyetlen időbélyeg,
 amit a felhasználó közvetlenül módosít (az [idővonalon](/features/napi-idovonal.md) húzogatva).
-
-**`edited_at`** — A marker mezője: mikor **szerkesztette** a rekordot valaki, kliensóra szerint.
-Kizárólag az [LWW](#lww) ütközésfeloldásra szolgál. **Nem kurzor** — kliensóra, tehát nem monoton.
-
-**`seq`** — A marker mezője: a **szerver** által osztott, szigorúan monoton sorszám. Kizárólag
-szinkronkurzorként szolgál. **Nem használható ütközésfeloldásra** — nem azt fejezi ki, mikor
-döntött úgy az ember, hanem azt, hogy melyik kérés ért be előbb.
 
 **`__none__`** — Pszeudo-tevékenység: *„innentől nincs rögzítés"*. Lezár egy szegmenst anélkül,
 hogy újat nyitna. Enélkül a modell nem tudna lyukat kifejezni. Mindenhol külön kezelendő — lásd
@@ -41,33 +33,24 @@ Nem azonos a naptári nappal. Azért van, hogy az éjszakai alvás ne törjön k
 [döntés](/decisions/2026-07-27-logikai-napkezdet.md). Következmény: a napi lekérdezés **soha nem**
 `WHERE date(at) = ?`.
 
-**Futó tevékenység** — Nem külön állapot, hanem egyszerűen az a marker, aminek még nincs
-rákövetkezője. A [határjelölő modell](/decisions/2026-07-27-hatarjelolo-adatmodell.md) egyik
+**Futó tevékenység** — Nem külön állapot, hanem az utolsó marker, ami **már elkezdődött**
+(`at <= now`). A `now` szűrés nem elméleti: egy elgépelt visszamenőleges rögzítés jövőbeli markert
+hoz létre, és enélkül az válna „futóvá", 0:00-s stopperrel. A [határjelölő modell](/decisions/2026-07-27-hatarjelolo-adatmodell.md) egyik
 haszna, hogy ez nem igényel külön mezőt vagy kezelést.
 
-# Szinkron
+# Adatelérés
 
-<a id="lww"></a>
-**LWW** (*last-write-wins*) — Az ütközésfeloldási szabály: a nagyobb `edited_at`-ű rekord nyer,
-holtversenyben a nagyobb `device_id`. A holtversenytörés nem szépészet — enélkül két eszköz
-**eltérő** végállapotra konvergálhatna. Mezőnkénti merge nincs: a nyertes a **teljes** rekordot
-felülírja.
+**Carry-in** — A `GET /api/markers?from&to` mindig visszaadja a `from` előtti **utolsó** markert is.
+Nem kényelmi extra: a nap első szegmensét szinte mindig egy előző napi marker definiálja (az esti
+alvás), és enélkül a nap eleje üresnek látszana — ami adatvesztésnek tűnik, pedig lekérdezési hiba.
+**A rendszer legkönnyebben elrontható pontja.** Szerveroldali szabály, tesztek őrzik.
 
-**`dirty`** — Kliensoldali, **nem szinkronizált** jelölés: ez a rekord lokálisan módosult, és még
-nem került fel a szerverre. Csak a sikeres válasz beolvasztása **után** törölhető — lásd
-[szinkronizáció](/features/szinkronizacio.md).
+**Ablak** — Az a nap-tartomány, amit a kliens éppen a memóriában tart (alapból 45 nap
+visszamenőleg). A Napok nézet „Korábbi napok" gombja bővíti.
 
-**`device_id`** — Telefononkénti UUID, első indításkor generálva, azután állandó. Két szerepe van:
-az LWW holtversenytörése, és annak nyilvántartása, melyik telefon rögzítette az eseményt (ez adja
-a „ki írta be" információt user-fiókok nélkül — lásd
-[nincs hitelesítés](/decisions/2026-07-27-nincs-hitelesites.md)).
-
-**Kurzor** (`lastSeq`) — A kliens által tárolt legutolsó látott `seq`. Ezt küldi `since`-ként.
-Akármilyen régi lehet: egy hetekig nem használt telefon egyetlen kéréssel behozza a lemaradását.
-
-**Soft delete** — A rekordok soha nem törlődnek fizikailag, csak `deleted_at`-et kapnak. Oka:
-egy valódi `DELETE` a másik eszköz kurzora számára láthatatlan lenne, és a sor **feltámadna** a
-következő szinkronnál.
+**Archiválás** — A tevékenységtípus `archived` jelölést kap, nem törlődik. Oka **nem** a szinkron:
+fizikai törlésnél a rá hivatkozó régi markerek árván maradnának, és a múltbeli napok
+olvashatatlanná válnának.
 
 # Platform és üzemeltetés
 
@@ -80,6 +63,9 @@ vannak — lásd [iOS Safari PWA](/integrations/ios-safari-pwa.md).
 **Volume** — A Coolify-ban a konténerhez rendelt perzisztens tároló, ami a `/data` útvonalra
 mountolódik. **Enélkül minden redeploy törli az adatbázist** — a projekt legveszélyesebb
 konfigurációs pontja, lásd [Coolify + Hetzner](/integrations/coolify-hetzner.md).
+
+**`node:sqlite`** — A Node beépített SQLite-modulja. Ezt használjuk a `better-sqlite3` helyett:
+nincs natív függőség, tehát az alpine Docker-image elég, és nincs fordítási lépés.
 
 **`SHARED_TOKEN`** — Opcionális környezeti változó. Ha üres vagy hiányzik, az API nyílt (a
 [jelenlegi döntés](/decisions/2026-07-27-nincs-hitelesites.md)); ha be van állítva, minden

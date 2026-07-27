@@ -8,10 +8,10 @@ Egy kétfelhasználós PWA Marci napi időtöltéseinek rögzítésére: mikor k
 vacsora, a fürdés, az altatás, mikor aludt el, mikor ébredt. Két iPhone-ra telepítve,
 kezdőképernyőre kitett webappként, saját Hetzner-szerveren.
 
-> **⚠️ 2026-07-27: a projektnek még nincs kódja.** A repo üres. Az [architektúra](architecture.md)
-> és a [features/](features/index.md) oldalak **tervet** írnak le (`status: draft`), nem
-> implementációt. A [döntések](decisions/index.md) viszont valódiak. A részleteket lásd a
-> [sémában](CLAUDE.md).
+> **2026-07-27: az app megvan és lokálisan ellenőrzött.** `web/` (React PWA) + `server/`
+> (Hono + `node:sqlite`) + `Dockerfile`. 19 teszt zöld. Ami még `draft`: a
+> [deploy](workflows/deploy.md), a [telepítés](workflows/telepites-iphone-ra.md) és a
+> [runbookok](runbooks/index.md) — ezek élesben még nem futottak le.
 
 # Kezdd itt
 
@@ -27,7 +27,7 @@ Miért így épül, és nem másképp. A *Miért* szakasz a teherhordó.
 
 * [PWA natív iOS app helyett](decisions/2026-07-27-pwa-nativ-ios-helyett.md) - nincs Xcode, nincs 99 dolláros fejlesztői fiók, nem jár le 7 naponta
 * [Határjelölő adatmodell intervallumok helyett](decisions/2026-07-27-hatarjelolo-adatmodell.md) - a húzogatás egyetlen mezőt módosít, az átfedésmentesség konstrukcióból következik
-* [Offline-first, LWW-szinkronnal](decisions/2026-07-27-offline-first-lww-szinkron.md) - a fürdőszobában is működik; két telefon összefésülése ütközésfeloldással
+* [Online-only, a szerver az egyetlen igazságforrás](decisions/2026-07-27-online-only.md) - nincs kliensoldali tár és nincs ütközésfeloldás; ez váltotta fel az eredeti offline-first tervet
 * [Nincs hitelesítés](decisions/2026-07-27-nincs-hitelesites.md) - a felhasználó tudatos döntése; a kockázat és a visszaút rögzítve
 * [SQLite adattár](decisions/2026-07-27-sqlite-adattar.md) - egy fájl, egy volume, triviális mentés
 * [Egy konténer, egy domain](decisions/2026-07-27-egy-konteneres-deploy.md) - a statikus frontendet is az API szolgálja ki, így nincs CORS és nincs második service
@@ -35,13 +35,11 @@ Miért így épül, és nem másképp. A *Miért* szakasz a teherhordó.
 
 # Funkciók
 
-> Mind `draft` — tervezett viselkedés, nem megvalósult.
-
 * [Gyorsrögzítés](features/gyorsrogzites.md) - a főképernyő: egy koppintás = „most kezdődött X", élő stopperrel
 * [Napi idővonal](features/napi-idovonal.md) - a nap egyetlen sávon, húzható határokkal, utólagos javításhoz
 * [Többnapos áttekintés](features/tobbnapos-attekintes.md) - napok egymás alatt, színkódolva; a minta itt válik láthatóvá
 * [Tevékenységtípusok és színek](features/tevekenysegtipusok.md) - a paletta, a `__none__` pszeudotípus, és miért szerkeszthető
-* [Szinkronizáció](features/szinkronizacio.md) - a kliens oldali fele: dirty flag, kurzor, mikor fut
+* [Adatfrissítés és többeszközös használat](features/szinkronizacio.md) - mikor frissül az adat, és mi történik, ha elmegy a hálózat
 
 # Integrációk
 
