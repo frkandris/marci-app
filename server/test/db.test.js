@@ -107,13 +107,17 @@ test('az upsert létrehoz és frissít is', () => {
 });
 
 test('a carry-in azonos időbélyegnél is determinisztikus (id szerint tör holtversenyt)', () => {
-  // Két backdate-elt marker ugyanarra a percre. A kliens at, majd id szerint
-  // rendez — a szervernek ugyanazt kell utolsónak tekintenie, különben a
-  // következő nap első szegmense más tevékenységet mutatna.
+  // Két marker ugyanarra az ezredmásodpercre. A `createMarker` ezt MA MÁR
+  // elutasítja, a régebbi adatokban viszont ott lehet — és a holtversenytörés
+  // épp azokra kell. Ezért itt közvetlenül a táblába írunk.
+  // A kliens at, majd id szerint rendez; a szervernek ugyanazt kell utolsónak
+  // tekintenie, különben a következő nap első szegmense mást mutatna.
   const db = fresh();
   const t = at(2026, 7, 26, 19, 30);
-  createMarker(db, { id: 'aaa', at: t, activityId: 'jatek' });
-  createMarker(db, { id: 'zzz', at: t, activityId: 'alvas' });
+  const raw = (id, activityId) =>
+    db.prepare('INSERT INTO markers(id,at,activity_id,note) VALUES(?,?,?,NULL)').run(id, t, activityId);
+  raw('aaa', 'jatek');
+  raw('zzz', 'alvas');
   const rows = listMarkers(db, at(2026, 7, 27, 4), at(2026, 7, 28, 4));
   assert.equal(rows[0].id, 'zzz', 'a nagyobb id nyer, ahogy a kliens rendezésénél is');
 });
@@ -267,5 +271,17 @@ test('a szerver elutasitja a szomszedait keresztezo hatarmozgatast', () => {
   // A tisztan tipusvaltas (at nelkul) sosem utkozik.
   assert.ok(updateMarker(db, 'b', { activityId: '__none__' }));
   assert.equal(updateMarker(db, 'nincs-ilyen', { at: T }), null);
+  db.close();
+});
+
+test('ket hatar nem eshet ugyanarra az ezredmasodpercre', () => {
+  const db = openDb(':memory:');
+  const T = Date.UTC(2026, 0, 1, 14, 30);
+  assert.ok(createMarker(db, { id: 'a', at: T, activityId: '__none__' }));
+  // A visszamenoleges felvetel 5 perces racsra illeszt: ket telefonrol
+  // konnyen ugyanaz az `at` jon ki. Egyikuk szegmense nulla hosszu lenne.
+  assert.equal(createMarker(db, { id: 'b', at: T, activityId: '__none__' }), 'conflict');
+  assert.ok(createMarker(db, { id: 'b', at: T + 1, activityId: '__none__' }), '1 ms-mal odebb mar mehet');
+  assert.equal(db.prepare('SELECT COUNT(*) c FROM markers').get().c, 2);
   db.close();
 });

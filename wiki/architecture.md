@@ -128,7 +128,7 @@ archiválás nincs; a soft delete kizárólag API-ból érhető el, szándékos 
 |---|---|
 | `GET /api/health` | `{ok, web}`. **A frontend meglétét is nézi** — a Docker build fázisa csendben elhasalhat úgy, hogy a szerver elindul, de csak 404-et ad |
 | `GET /api/markers?from&to` | A `[from, to)` markerei **plusz a carry-in** — lásd lent |
-| `POST /api/markers` | `{at, activityId, note?}` → a létrehozott sor. **400, ha a jövőbe mutat** (5 perc óraeltérés-tűréssel) |
+| `POST /api/markers` | `{at, activityId, note?}` → a létrehozott sor. **400, ha a jövőbe mutat** (5 perc óraeltérés-tűréssel), **409, ha arra az ezredmásodpercre már esik határ** |
 | `PATCH /api/markers/:id` | Részleges módosítás → a mentett sor. **409, ha az új idő keresztezné a szomszédokat** |
 | `DELETE /api/markers/:id` | Valódi törlés (204) |
 | `GET /api/activities` | Az összes típus, az archiváltakkal együtt |

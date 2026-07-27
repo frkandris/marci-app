@@ -263,14 +263,36 @@ export function listMarkers(db, from, to) {
   return [...carry, ...inRange].map(toMarker);
 }
 
+/**
+ * Két határ nem eshet UGYANARRA az ezredmásodpercre.
+ *
+ * A visszamenőleges felvétel 5 perces rácsra illeszt, tehát két telefonról
+ * könnyen ugyanaz az `at` jön ki. A származtatott idővonalon ilyenkor az
+ * egyik szegmens NULLA hosszú lesz, és néma módon eltűnik — a UUID
+ * holtversenytörése dönti el, melyik. Az 1 ms-os eltolás sem segítene: attól
+ * a szegmens még láthatatlanul rövid maradna. Az egyetlen becsületes válasz
+ * a visszautasítás: a felhasználó válasszon másik percet.
+ */
 export function createMarker(db, m) {
-  db.prepare('INSERT INTO markers(id,at,activity_id,note) VALUES(?,?,?,?)').run(
-    m.id,
-    m.at,
-    m.activityId,
-    m.note ?? null,
-  );
-  return toMarker(db.prepare('SELECT * FROM markers WHERE id = ?').get(m.id));
+  db.exec('BEGIN IMMEDIATE');
+  try {
+    if (db.prepare('SELECT 1 FROM markers WHERE at = ?').get(m.at)) {
+      db.exec('ROLLBACK');
+      return 'conflict';
+    }
+    db.prepare('INSERT INTO markers(id,at,activity_id,note) VALUES(?,?,?,?)').run(
+      m.id,
+      m.at,
+      m.activityId,
+      m.note ?? null,
+    );
+    const row = toMarker(db.prepare('SELECT * FROM markers WHERE id = ?').get(m.id));
+    db.exec('COMMIT');
+    return row;
+  } catch (e) {
+    db.exec('ROLLBACK');
+    throw e;
+  }
 }
 
 /**

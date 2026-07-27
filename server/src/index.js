@@ -162,7 +162,10 @@ api.post('/markers', async (c) => {
   // tevékenységet. Árván a régi napok név és szín nélkül maradnának.
   if (!activityExists(db, b.activityId)) return c.json({ error: 'unknown activityId' }, 409);
   const id = typeof b.id === 'string' && b.id ? b.id : crypto.randomUUID();
-  return c.json(createMarker(db, { id, at: b.at, activityId: b.activityId, note: b.note ?? null }), 201);
+  const row = createMarker(db, { id, at: b.at, activityId: b.activityId, note: b.note ?? null });
+  if (row === 'conflict')
+    return c.json({ error: 'erre a percre már esik egy bejegyzés' }, 409);
+  return c.json(row, 201);
 });
 
 api.patch('/markers/:id', async (c) => {
