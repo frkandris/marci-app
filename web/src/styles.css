@@ -550,6 +550,16 @@ button { cursor: pointer; }
 /* --- Tevékenységek ------------------------------------------------------ */
 
 .settings { padding: 14px 16px 28px; }
+.subnav {
+  display: block;
+  margin: 0 0 6px;
+  padding: 6px 4px;
+  background: none;
+  border: 0;
+  color: var(--accent);
+  font-size: 15px;
+  min-height: 40px;
+}
 .sect { margin: 26px 0 8px; }
 
 /* Színes ikoncsempe: az ikon és a színkód egyetlen elemben, így nem kell külön

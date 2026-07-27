@@ -46,8 +46,13 @@ export function uniqueId(base: string, taken: Set<string>): string {
   return `${base}-${i}`;
 }
 
+type Section = 'activities';
+
 export function Settings() {
   const { activities } = useStore();
+  // Almenü-szerkezet: a gyökér csak a szakaszokat listázza, hogy később
+  // továbbiak is elférjenek anélkül, hogy a tevékenységlista elnyomná őket.
+  const [section, setSection] = useState<Section | null>(null);
   // A Beállításokban ÁBÉCÉ szerint, hogy bármit gyorsan meg lehessen találni.
   // (A gyorsrögzítő gombok sorrendje ettől független: ott a használat dönt.)
   const live = liveActivities(activities).sort((a, b) => a.label.localeCompare(b.label, 'hu'));
@@ -92,8 +97,27 @@ export function Settings() {
     </span>
   );
 
+  if (section === null) {
+    return (
+      <div className="settings">
+        <List strongIos insetIos className="marci-list">
+          <ListItem
+            title="Tevékenységek"
+            after={`${live.length}`}
+            link
+            onClick={() => setSection('activities')}
+          />
+        </List>
+      </div>
+    );
+  }
+
   return (
     <div className="settings">
+      <button className="subnav" onClick={() => setSection(null)}>
+        ‹ Beállítások
+      </button>
+
       <List strongIos insetIos className="marci-list">
         {live.map((a) => (
           <ListItem
