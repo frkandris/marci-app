@@ -4,17 +4,17 @@ import { DatabaseSync } from 'node:sqlite';
 // A szerver az EGYETLEN igazságforrás: nincs kliensoldali tár, nincs
 // ütközésfeloldás. Lásd wiki/decisions/2026-07-27-online-only.md.
 
-const SCHEMA_VERSION = 2;
+const SCHEMA_VERSION = 3;
 
 /** A kezdő tevékenységpaletta. Lásd wiki/features/tevekenysegtipusok.md. */
 export const DEFAULT_ACTIVITIES = [
-  { id: 'alvas', label: 'Alvás', color: '#4A56C4', icon: '😴', sort: 10 },
-  { id: 'altatas', label: 'Altatás', color: '#8B6FD0', icon: '🌙', sort: 20 },
-  { id: 'etkezes', label: 'Étkezés', color: '#DE8A2C', icon: '🍽️', sort: 30 },
-  { id: 'furdes', label: 'Fürdés', color: '#2A9CBE', icon: '🛁', sort: 40 },
-  { id: 'jatek', label: 'Játék', color: '#3FA36E', icon: '🧸', sort: 50 },
-  { id: 'program', label: 'Séta', color: '#8AA82E', icon: '🚶', sort: 60 },
-  { id: 'ovi', label: 'Ovi', color: '#C0559B', icon: '🎒', sort: 70 },
+  { id: 'alvas', label: 'Alvás', color: '#4A56C4', icon: 'moon', sort: 10 },
+  { id: 'altatas', label: 'Altatás', color: '#8B6FD0', icon: 'bed', sort: 20 },
+  { id: 'etkezes', label: 'Étkezés', color: '#DE8A2C', icon: 'bowl', sort: 30 },
+  { id: 'furdes', label: 'Fürdés', color: '#2A9CBE', icon: 'droplet', sort: 40 },
+  { id: 'jatek', label: 'Játék', color: '#3FA36E', icon: 'blocks', sort: 50 },
+  { id: 'program', label: 'Séta', color: '#8AA82E', icon: 'shoe', sort: 60 },
+  { id: 'ovi', label: 'Ovi', color: '#C0559B', icon: 'backpack', sort: 70 },
 ];
 
 export function openDb(path) {
@@ -69,6 +69,23 @@ function migrate(db) {
         db.exec('ROLLBACK');
         throw err;
       }
+    }
+  }
+
+  if (current < 3) {
+    // Emoji ikonok -> saját ikonkészlet nevei. Az emoji platformonként más
+    // rajzú és méretű, ezért a felület sosem nézett ki egységesnek.
+    const BY_ID = {
+      alvas: 'moon', altatas: 'bed', etkezes: 'bowl', furdes: 'droplet',
+      jatek: 'blocks', program: 'shoe', ovi: 'backpack', bolcsi: 'backpack',
+    };
+    const VALID = new Set(Object.values(BY_ID).concat([
+      'bottle', 'sun', 'car', 'book', 'music', 'heart', 'health', 'star', 'stop',
+    ]));
+    const upd = db.prepare('UPDATE activities SET icon = ? WHERE id = ?');
+    for (const a of db.prepare('SELECT id, icon FROM activities').all()) {
+      if (a.icon && VALID.has(a.icon)) continue;
+      upd.run(BY_ID[a.id] ?? 'star', a.id);
     }
   }
 

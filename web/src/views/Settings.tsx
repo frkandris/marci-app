@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useStore } from '../App';
 import {
   archiveActivity,
@@ -8,6 +8,7 @@ import {
   unarchiveActivity,
 } from '../store';
 import { liveActivities, type Activity } from '../model';
+import { ICON_NAMES, Icon } from '../icons';
 
 const PRESETS = [
   '#4A56C4', '#8B6FD0', '#C0559B', '#D9634E',
@@ -22,6 +23,13 @@ const slug = (s: string) =>
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-|-$/g, '');
 
+interface Drag {
+  from: number;
+  to: number;
+  startY: number;
+  rowH: number;
+}
+
 export function Settings() {
   const { activities } = useStore();
   const live = liveActivities(activities);
@@ -30,6 +38,41 @@ export function Settings() {
   const [editing, setEditing] = useState<Activity | null>(null);
   const [isNew, setIsNew] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<{ a: Activity; usage: number } | null>(null);
+  const [drag, setDrag] = useState<Drag | null>(null);
+  const listRef = useRef<HTMLUListElement>(null);
+
+  // Húzás közben a lista már a leendő sorrendben látszik — enélkül vakon húzol.
+  const order = drag ? move(live, drag.from, drag.to) : live;
+
+  function move<T>(arr: T[], from: number, to: number): T[] {
+    const out = [...arr];
+    out.splice(to, 0, ...out.splice(from, 1));
+    return out;
+  }
+
+  function onGripDown(e: React.PointerEvent, index: number) {
+    e.preventDefault();
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    const rows = listRef.current?.children;
+    const rowH = rows?.[0] ? (rows[0] as HTMLElement).offsetHeight : 56;
+    setDrag({ from: index, to: index, startY: e.clientY, rowH });
+  }
+
+  function onGripMove(e: React.PointerEvent) {
+    if (!drag) return;
+    const shift = Math.round((e.clientY - drag.startY) / drag.rowH);
+    const to = Math.min(Math.max(drag.from + shift, 0), live.length - 1);
+    if (to !== drag.to) setDrag({ ...drag, to });
+  }
+
+  function onGripUp() {
+    if (!drag) return;
+    const d = drag;
+    setDrag(null);
+    if (d.from !== d.to) {
+      void reorderActivities([...move(live, d.from, d.to), ...archived].map((a) => a.id));
+    }
+  }
 
   function startNew() {
     setIsNew(true);
@@ -37,7 +80,7 @@ export function Settings() {
       id: '',
       label: '',
       color: PRESETS[(live.length * 3) % PRESETS.length],
-      icon: '',
+      icon: 'star',
       sort: (live.at(-1)?.sort ?? 0) + 10,
       archived: false,
     });
@@ -51,14 +94,6 @@ export function Settings() {
     setIsNew(false);
   }
 
-  function move(i: number, dir: -1 | 1) {
-    const next = [...live];
-    const j = i + dir;
-    if (j < 0 || j >= next.length) return;
-    [next[i], next[j]] = [next[j], next[i]];
-    void reorderActivities([...next, ...archived].map((a) => a.id));
-  }
-
   async function tryDelete(a: Activity) {
     const usage = await deleteActivityHard(a.id, false);
     if (usage !== null) setConfirmDelete({ a, usage });
@@ -67,41 +102,40 @@ export function Settings() {
 
   return (
     <div className="settings">
-      <div className="sect">
-        <h2 className="eyebrow">Tevékenységek</h2>
-        <p className="hint">
-          A sorrend a Most fülön lévő gombok sorrendje. Csak kézzel változik, hogy a gombok
-          mindig ugyanott legyenek.
-        </p>
-      </div>
-
-      <ul className="actlist">
-        {live.map((a, i) => (
-          <li key={a.id}>
-            <span className="swatch" style={{ background: a.color }} aria-hidden="true" />
-            <button className="actlist__main" onClick={() => (setIsNew(false), setEditing(a))}>
-              <span className="actlist__name">
-                <span aria-hidden="true">{a.icon}</span>
-                {a.label}
-              </span>
-              <span className="actlist__meta">
-                {a.usageCount ? `${a.usageCount} esemény` : 'még nincs használatban'}
-              </span>
-            </button>
-            <span className="reorder">
-              <button onClick={() => move(i, -1)} disabled={i === 0} aria-label="Feljebb">
-                ↑
-              </button>
-              <button
-                onClick={() => move(i, 1)}
-                disabled={i === live.length - 1}
-                aria-label="Lejjebb"
+      <ul className="actlist" ref={listRef}>
+        {order.map((a) => {
+          const i = live.indexOf(a);
+          const dragging = drag && live[drag.from].id === a.id;
+          return (
+            <li key={a.id} className={dragging ? 'is-dragging' : ''}>
+              <span
+                className="grip"
+                onPointerDown={(e) => onGripDown(e, i)}
+                onPointerMove={onGripMove}
+                onPointerUp={onGripUp}
+                onPointerCancel={() => setDrag(null)}
+                role="button"
+                tabIndex={0}
+                aria-label={`${a.label} áthelyezése`}
               >
-                ↓
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+                  <circle cx="6" cy="3" r="1.4" /><circle cx="10" cy="3" r="1.4" />
+                  <circle cx="6" cy="8" r="1.4" /><circle cx="10" cy="8" r="1.4" />
+                  <circle cx="6" cy="13" r="1.4" /><circle cx="10" cy="13" r="1.4" />
+                </svg>
+              </span>
+              <button className="actlist__main" onClick={() => (setIsNew(false), setEditing(a))}>
+                <span className="chipicon" style={{ background: a.color }}>
+                  <Icon name={a.icon} size={17} />
+                </span>
+                <span className="actlist__text">
+                  <span className="actlist__name">{a.label}</span>
+                  <span className="actlist__meta">{a.usageCount ?? 0} esemény</span>
+                </span>
               </button>
-            </span>
-          </li>
-        ))}
+            </li>
+          );
+        })}
       </ul>
 
       <button className="wide" onClick={startNew}>
@@ -110,24 +144,18 @@ export function Settings() {
 
       {archived.length > 0 && (
         <>
-          <div className="sect">
-            <h2 className="eyebrow">Archivált</h2>
-            <p className="hint">
-              Nem jelennek meg a gombok között, de a korábbi napokon továbbra is helyesen
-              látszanak.
-            </p>
-          </div>
+          <h2 className="eyebrow sect">Archivált</h2>
           <ul className="actlist actlist--muted">
             {archived.map((a) => (
               <li key={a.id}>
-                <span className="swatch" style={{ background: a.color }} aria-hidden="true" />
+                <span className="grip grip--off" aria-hidden="true" />
                 <span className="actlist__main">
-                  <span className="actlist__name">
-                    <span aria-hidden="true">{a.icon}</span>
-                    {a.label}
+                  <span className="chipicon" style={{ background: a.color }}>
+                    <Icon name={a.icon} size={17} />
                   </span>
-                  <span className="actlist__meta">
-                    {a.usageCount ? `${a.usageCount} esemény` : 'nincs használatban'}
+                  <span className="actlist__text">
+                    <span className="actlist__name">{a.label}</span>
+                    <span className="actlist__meta">{a.usageCount ?? 0} esemény</span>
                   </span>
                 </span>
                 <button className="link" onClick={() => void unarchiveActivity(a)}>
@@ -142,53 +170,51 @@ export function Settings() {
       {editing && (
         <div className="sheet-backdrop" onClick={() => setEditing(null)}>
           <div className="sheet" onClick={(e) => e.stopPropagation()}>
-            <h3>{isNew ? 'Új tevékenység' : editing.label}</h3>
-
             <div className="preview" style={{ '--c': editing.color } as React.CSSProperties}>
-              <span className="preview__icon">{editing.icon || '•'}</span>
+              <span className="chipicon chipicon--lg" style={{ background: editing.color }}>
+                <Icon name={editing.icon} size={22} />
+              </span>
               {editing.label || 'Név'}
             </div>
 
-            <label className="field">
-              <span className="eyebrow">Név</span>
-              <input
-                value={editing.label}
-                onChange={(e) => setEditing({ ...editing, label: e.target.value })}
-                placeholder="pl. Uzsonna"
-                autoFocus={isNew}
-              />
-            </label>
+            <input
+              className="bigfield"
+              value={editing.label}
+              onChange={(e) => setEditing({ ...editing, label: e.target.value })}
+              placeholder="Név"
+              autoFocus={isNew}
+            />
 
-            <label className="field">
-              <span className="eyebrow">Ikon</span>
-              <input
-                value={editing.icon ?? ''}
-                onChange={(e) => setEditing({ ...editing, icon: e.target.value })}
-                placeholder="egy emoji"
-                maxLength={4}
-              />
-            </label>
+            <div className="picker">
+              {ICON_NAMES.map((n) => (
+                <button
+                  key={n}
+                  className={`pickbtn ${editing.icon === n ? 'is-active' : ''}`}
+                  onClick={() => setEditing({ ...editing, icon: n })}
+                  aria-label={n}
+                >
+                  <Icon name={n} size={20} />
+                </button>
+              ))}
+            </div>
 
-            <div className="field">
-              <span className="eyebrow">Szín</span>
-              <div className="swatches">
-                {PRESETS.map((c) => (
-                  <button
-                    key={c}
-                    className={`swatchbtn ${editing.color.toUpperCase() === c ? 'is-active' : ''}`}
-                    style={{ background: c }}
-                    onClick={() => setEditing({ ...editing, color: c })}
-                    aria-label={`Szín ${c}`}
-                  />
-                ))}
-                <input
-                  type="color"
-                  className="swatchbtn swatchbtn--custom"
-                  value={editing.color}
-                  onChange={(e) => setEditing({ ...editing, color: e.target.value })}
-                  aria-label="Egyéni szín"
+            <div className="picker picker--colors">
+              {PRESETS.map((c) => (
+                <button
+                  key={c}
+                  className={`pickbtn pickbtn--color ${editing.color.toUpperCase() === c ? 'is-active' : ''}`}
+                  style={{ background: c }}
+                  onClick={() => setEditing({ ...editing, color: c })}
+                  aria-label={`Szín ${c}`}
                 />
-              </div>
+              ))}
+              <input
+                type="color"
+                className="pickbtn pickbtn--color pickbtn--custom"
+                value={editing.color}
+                onChange={(e) => setEditing({ ...editing, color: e.target.value })}
+                aria-label="Egyéni szín"
+              />
             </div>
 
             <div className="sheet__actions">
@@ -206,10 +232,6 @@ export function Settings() {
                 <button className="danger" onClick={() => void tryDelete(editing)}>
                   Végleges törlés
                 </button>
-                <p className="hint">
-                  Az archiválás csak elrejti a gombot. A végleges törlés csak akkor megy át
-                  magától, ha egyetlen esemény sem használja.
-                </p>
               </div>
             )}
           </div>
@@ -219,16 +241,9 @@ export function Settings() {
       {confirmDelete && (
         <div className="sheet-backdrop" onClick={() => setConfirmDelete(null)}>
           <div className="sheet" onClick={(e) => e.stopPropagation()}>
-            <h3>„{confirmDelete.a.label}" használatban van</h3>
-            <p>
-              <strong>{confirmDelete.usage} esemény</strong> hivatkozik rá. Ha véglegesen törlöd,
-              ezek az események is <strong>eltűnnek</strong> a korábbi napokról. Ez nem vonható
-              vissza.
-            </p>
-            <p className="hint">
-              Ha csak a gombot akarod eltüntetni, válaszd az archiválást — a régi napok érintetlenek
-              maradnak.
-            </p>
+            <h3>
+              {confirmDelete.usage} esemény is törlődik vele. Nem vonható vissza.
+            </h3>
             <div className="sheet__actions">
               <button
                 onClick={() => {
@@ -247,7 +262,7 @@ export function Settings() {
                   setEditing(null);
                 }}
               >
-                Törlés {confirmDelete.usage} eseménnyel
+                Törlés
               </button>
             </div>
           </div>

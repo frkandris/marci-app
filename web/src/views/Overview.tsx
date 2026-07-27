@@ -63,7 +63,7 @@ export function Overview({ onOpenDay }: { onOpenDay: (key: string) => void }) {
                       onClick={(e) => {
                         e.stopPropagation();
                         setPeek({
-                          label: `${a?.icon ?? ''} ${a?.label ?? s.activityId}`,
+                          label: a?.label ?? s.activityId,
                           text: `${fmtTime(s.start)}–${fmtTime(s.end)} · ${fmtDuration(s.end - s.start)}`,
                         });
                       }}

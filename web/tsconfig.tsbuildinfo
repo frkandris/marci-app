@@ -1,1 +1,1 @@
-{"root":["./src/app.tsx","./src/main.tsx","./src/model.ts","./src/store.ts","./src/views/capture.tsx","./src/views/day.tsx","./src/views/overview.tsx","./src/views/settings.tsx"],"version":"5.9.3"}
+{"root":["./src/app.tsx","./src/icons.tsx","./src/main.tsx","./src/model.ts","./src/store.ts","./src/views/capture.tsx","./src/views/day.tsx","./src/views/overview.tsx","./src/views/settings.tsx"],"version":"5.9.3"}

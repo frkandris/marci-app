@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { Icon } from '../icons';
 import { useStore } from '../App';
 import { addMarker, deleteMarker } from '../store';
 import {
@@ -84,7 +85,10 @@ export function Capture({ onOpenDay }: { onOpenDay: (key: string) => void }) {
         {running && runningAct ? (
           <>
             <div className="current__label">
-              {runningAct.icon} {runningAct.label}
+              <span className="chipicon" style={{ background: runningAct.color }}>
+                <Icon name={runningAct.icon} size={16} />
+              </span>
+              {runningAct.label}
             </div>
             <div className="current__clock">{fmtClock(elapsed)}</div>
             <div className="current__since">{fmtTime(running.at)} óta</div>
@@ -97,11 +101,7 @@ export function Capture({ onOpenDay }: { onOpenDay: (key: string) => void }) {
         )}
       </section>
 
-      {stuck && (
-        <p className="current__warn">
-          Több mint 12 órája fut. Elfelejtettél „Vége"-t nyomni?
-        </p>
-      )}
+      {stuck && <p className="current__warn">Több mint 12 órája fut.</p>}
 
       <button className="daystrip" onClick={() => onOpenDay(today)} aria-label="Mai nap megnyitása">
         <div className="daystrip__track">
@@ -153,8 +153,8 @@ export function Capture({ onOpenDay }: { onOpenDay: (key: string) => void }) {
             onClick={() => void record(a.id, a.label)}
             disabled={backdate && !backTime}
           >
-            <span className="bigbtn__icon" aria-hidden="true">
-              {a.icon}
+            <span className="bigbtn__icon">
+              <Icon name={a.icon} size={19} />
             </span>
             {a.label}
           </button>
@@ -164,8 +164,8 @@ export function Capture({ onOpenDay }: { onOpenDay: (key: string) => void }) {
           onClick={() => void record(NONE, 'Vége')}
           disabled={backdate && !backTime}
         >
-          <span className="bigbtn__icon" aria-hidden="true">
-            ⏹
+          <span className="bigbtn__icon">
+            <Icon name="stop" size={19} />
           </span>
           Vége
         </button>

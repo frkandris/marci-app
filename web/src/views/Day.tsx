@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from 'react';
+import { Icon } from '../icons';
 import { useStore } from '../App';
 import { deleteMarker, updateMarker } from '../store';
 import {
@@ -146,7 +147,8 @@ export function Day({
                 onClick={() => setSheet(s.markerId)}
               >
                 <span className="seg__label">
-                  {a?.icon} {a?.label ?? s.activityId}
+                  <Icon name={a?.icon} size={13} />
+                  {a?.label ?? s.activityId}
                   <em>{fmtDuration(s.end - s.start)}</em>
                   {(s.clippedStart || s.clippedEnd) && <i title="A napon túlnyúlik">↕</i>}
                 </span>
@@ -191,9 +193,7 @@ export function Day({
       </div>
 
       {segments.length === 0 && (
-        <p className="empty">
-          Ezen a napon nincs rögzítés. A „Most" fülön egy koppintással indíthatsz.
-        </p>
+        <p className="empty">Ezen a napon nincs rögzítés.</p>
       )}
 
       {undo && (
@@ -213,7 +213,7 @@ export function Day({
       {sheetMarker && (
         <div className="sheet-backdrop" onClick={() => setSheet(null)}>
           <div className="sheet" onClick={(e) => e.stopPropagation()}>
-            <h3>{fmtTime(sheetMarker.at)} — mi kezdődött?</h3>
+            <h3>{fmtTime(sheetMarker.at)}</h3>
             <div className="sheet__grid">
               {live.map((a) => (
                 <button
@@ -225,7 +225,8 @@ export function Day({
                     setSheet(null);
                   }}
                 >
-                  {a.icon} {a.label}
+                  <Icon name={a.icon} size={16} />
+                  {a.label}
                 </button>
               ))}
               <button
@@ -235,7 +236,8 @@ export function Day({
                   setSheet(null);
                 }}
               >
-                ⏹ Vége
+                <Icon name="stop" size={16} />
+                Vége
               </button>
             </div>
             <div className="sheet__actions">

@@ -174,3 +174,20 @@ test('a v2 migracio atnevezi a bolcsit ovira, a markereivel egyutt', () => {
   assert.equal(acts.find((a) => a.id === 'ovi').label, 'Ovi');
   assert.equal(listMarkers(db, 0, 9999).at(-1).activityId, 'ovi', 'a marker is atallt');
 });
+
+test('a v3 migracio emoji ikonokat ikonnevekre cserel', () => {
+  const path = `/tmp/marci-mig3-${Math.random().toString(36).slice(2)}.db`;
+  const old = new DatabaseSync(path);
+  old.exec(`
+    CREATE TABLE markers (id TEXT PRIMARY KEY, at INTEGER NOT NULL, activity_id TEXT NOT NULL, note TEXT);
+    CREATE TABLE activities (id TEXT PRIMARY KEY, label TEXT NOT NULL, color TEXT NOT NULL, icon TEXT, sort INTEGER NOT NULL, archived INTEGER NOT NULL DEFAULT 0);
+    INSERT INTO activities VALUES ('alvas','Alvás','#4A56C4','😴',10,0);
+    INSERT INTO activities VALUES ('sajat','Saját','#123456','🦄',80,0);
+    PRAGMA user_version = 2;
+  `);
+  old.close();
+
+  const acts = listActivities(openDb(path));
+  assert.equal(acts.find((a) => a.id === 'alvas').icon, 'moon', 'ismert id -> illo ikon');
+  assert.equal(acts.find((a) => a.id === 'sajat').icon, 'star', 'ismeretlen -> altalanos ikon');
+});
