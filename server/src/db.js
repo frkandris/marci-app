@@ -80,9 +80,13 @@ function migrate(db) {
       // maradnának.
       const hasOld = db.prepare("SELECT 1 FROM activities WHERE id = 'bolcsi'").get();
       const hasNew = db.prepare("SELECT 1 FROM activities WHERE id = 'ovi'").get();
-      if (hasOld && !hasNew) {
+      if (hasOld) {
         db.exec("UPDATE markers SET activity_id = 'ovi' WHERE activity_id = 'bolcsi'");
-        db.exec("UPDATE activities SET id = 'ovi', label = 'Ovi' WHERE id = 'bolcsi'");
+        // Ha az 'ovi' MÁR létezik (a felhasználó maga is létrehozhatta), a
+        // régi sort eldobjuk — különben két azonos jelentésű kategória
+        // maradna, örökre migrálatlanul.
+        if (hasNew) db.exec("DELETE FROM activities WHERE id = 'bolcsi'");
+        else db.exec("UPDATE activities SET id = 'ovi', label = 'Ovi' WHERE id = 'bolcsi'");
       }
     });
   }

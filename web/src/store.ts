@@ -86,8 +86,22 @@ function window_(days = state.daysLoaded): [number, number] {
  * vagy eltüntethetne egy épp mentett markert.
  */
 let refreshGen = 0;
-/** Volt-e olyan lekérés, amit egy mutáció eldobott? Akkor pótolni kell. */
-let refreshDiscarded = false;
+let replacementQueued = false;
+
+/**
+ * Egy elavulttá vált lekérés pótlása. Azonnal, a mikrotask-sor után indul, és
+ * egyszerre csak egy van függőben. A pótlás azért kell, mert az elavult
+ * válasz nem írhat állapotot — így a `loading` is beragadna, és a nézet a
+ * következő pollig hiányos maradna.
+ */
+function queueReplacementRefresh() {
+  if (replacementQueued) return;
+  replacementQueued = true;
+  setTimeout(() => {
+    replacementQueued = false;
+    void refresh();
+  }, 0);
+}
 
 export async function refresh(days = state.daysLoaded) {
   const gen = ++refreshGen;
@@ -102,7 +116,8 @@ export async function refresh(days = state.daysLoaded) {
       api<Activity[]>('/activities'),
     ]);
     if (gen !== refreshGen) {
-      refreshDiscarded = true; // közben mutáció történt — a választ eldobjuk
+      // Közben mutáció történt — ezt a választ eldobjuk, és pótoljuk.
+      queueReplacementRefresh();
       return;
     }
     set({ markers, activities, daysLoaded: days, error: null, ready: true });
@@ -110,7 +125,7 @@ export async function refresh(days = state.daysLoaded) {
     // Mindig online az elvárás, de a hálózat akkor is elmehet — ilyenkor a
     // korábban betöltött adat a képernyőn marad, és jelezzük, hogy elavult.
     if (gen !== refreshGen) {
-      refreshDiscarded = true;
+      queueReplacementRefresh();
       return;
     }
     set({ error: `Nem érhető el a szerver (${(e as Error).message})` });
@@ -162,12 +177,6 @@ async function guard<T>(fn: () => Promise<T>): Promise<T | null> {
     // A mutáció KÖZBEN indult lekérés a mutáció ELŐTTI állapotot olvasta, de
     // frissebb generációt kapott — ezért a végén ÚJRA érvénytelenítünk.
     refreshGen++;
-    // Ha közben tényleg eldobtunk egy választ, pótoljuk — különben egy épp
-    // futó, szélesebb ablakos betöltés eredménye elveszne.
-    if (refreshDiscarded) {
-      refreshDiscarded = false;
-      void refresh();
-    }
   }
 }
 

@@ -218,3 +218,23 @@ test('az upsert visszaadja a usageCount-ot is', () => {
   });
   assert.equal(row.usageCount, 2);
 });
+
+test('a v2 migracio akkor is atvezet, ha az "ovi" MAR letezik', () => {
+  const path = `/tmp/marci-mig2b-${Math.random().toString(36).slice(2)}.db`;
+  const old = new DatabaseSync(path);
+  old.exec(`
+    CREATE TABLE markers (id TEXT PRIMARY KEY, at INTEGER NOT NULL, activity_id TEXT NOT NULL, note TEXT);
+    CREATE TABLE activities (id TEXT PRIMARY KEY, label TEXT NOT NULL, color TEXT NOT NULL, icon TEXT, sort INTEGER NOT NULL, archived INTEGER NOT NULL DEFAULT 0);
+    INSERT INTO activities VALUES ('bolcsi','Bölcsi','#C0559B','backpack',70,0);
+    INSERT INTO activities VALUES ('ovi','Ovi','#C0559B','backpack',80,0);
+    INSERT INTO markers VALUES ('m1', 1000, 'bolcsi', NULL);
+    PRAGMA user_version = 1;
+  `);
+  old.close();
+
+  const db = openDb(path);
+  const acts = listActivities(db);
+  assert.equal(acts.some((a) => a.id === 'bolcsi'), false, 'a duplikatum eltunt');
+  assert.equal(acts.filter((a) => a.id === 'ovi').length, 1);
+  assert.equal(listMarkers(db, 0, 9999).at(-1).activityId, 'ovi', 'a marker atallt');
+});
