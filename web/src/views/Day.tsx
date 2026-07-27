@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Block, Button, Sheet, Toast } from 'konsta/react';
 import { Icon } from '../icons';
 import { useStore } from '../App';
-import { deleteMarker, updateMarker } from '../store';
+import { deleteMarker, ensureDayLoaded, updateMarker } from '../store';
 import {
   DAY_START_HOUR,
   NONE,
@@ -73,6 +73,10 @@ export function Day({
 
   // A nap tetejéről indulni haszontalan: hajnali 4-kor sosincs semmi. Oda
   // tekerünk, ahol épp állunk — vagy a nap első rögzítéséhez, ha múltbeli nap.
+  useEffect(() => {
+    void ensureDayLoaded(key);
+  }, [key]);
+
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;

@@ -12,11 +12,9 @@ import {
 } from 'konsta/react';
 import { useStore } from '../App';
 import {
-  archiveActivity,
   deleteActivityHard,
   reorderActivities,
   saveActivity,
-  unarchiveActivity,
 } from '../store';
 import { liveActivities, type Activity } from '../model';
 import { ICON_NAMES, Icon } from '../icons';
@@ -65,7 +63,9 @@ const move = <T,>(arr: T[], from: number, to: number): T[] => {
 export function Settings() {
   const { activities } = useStore();
   const live = liveActivities(activities);
-  const archived = activities.filter((a) => a.archived).sort((a, b) => a.sort - b.sort);
+  // Az archiválás mint külön fogalom kikerült a felületről; a szerver
+  // továbbra is ismeri, ezért a sorrendezésnél nem hagyhatjuk ki a sorait.
+  const archived = activities.filter((a) => a.archived);
 
   const [editing, setEditing] = useState<Activity | null>(null);
   const [isNew, setIsNew] = useState(false);
@@ -185,24 +185,6 @@ export function Settings() {
         </Button>
       </Block>
 
-      {archived.length > 0 && (
-        <List strongIos insetIos className="marci-list opacity-60">
-          {archived.map((a) => (
-            <ListItem
-              key={a.id}
-              media={chip(a)}
-              title={a.label}
-              subtitle={`${a.usageCount ?? 0} esemény`}
-              after={
-                <button className="link" onClick={() => void unarchiveActivity(a)}>
-                  Vissza
-                </button>
-              }
-            />
-          ))}
-        </List>
-      )}
-
       <Sheet opened={!!editing} onBackdropClick={() => setEditing(null)} className="marci-sheet">
         {editing && (
           <Block>
@@ -263,10 +245,12 @@ export function Settings() {
 
             {!isNew && (
               <div className="sheet__row sheet__row--danger">
-                <Button rounded outline onClick={() => void archiveActivity(editing.id).then(() => setEditing(null))}>
-                  Archiválás
-                </Button>
-                <Button rounded outline colors={{ textIos: 'text-red-500', outlineBorderIos: 'border-red-500' }} onClick={() => void tryDelete(editing)}>
+                <Button
+                  rounded
+                  outline
+                  colors={{ textIos: 'text-red-500', outlineBorderIos: 'border-red-500' }}
+                  onClick={() => void tryDelete(editing)}
+                >
                   Törlés
                 </Button>
               </div>
@@ -281,15 +265,6 @@ export function Settings() {
             {confirmDelete?.usage} esemény is törlődik vele. Nem vonható vissza.
           </ActionsLabel>
           <ActionsButton
-            onClick={() => {
-              if (confirmDelete) void archiveActivity(confirmDelete.a.id);
-              setConfirmDelete(null);
-              setEditing(null);
-            }}
-          >
-            Inkább archiválom
-          </ActionsButton>
-          <ActionsButton
             bold
             colors={{ textIos: 'text-red-500' }}
             onClick={() => {
@@ -298,7 +273,7 @@ export function Settings() {
               setEditing(null);
             }}
           >
-            Végleges törlés
+            Törlés {confirmDelete?.usage} eseménnyel
           </ActionsButton>
         </ActionsGroup>
         <ActionsGroup>

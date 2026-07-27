@@ -191,3 +191,15 @@ test('a v3 migracio emoji ikonokat ikonnevekre cserel', () => {
   assert.equal(acts.find((a) => a.id === 'alvas').icon, 'moon', 'ismert id -> illo ikon');
   assert.equal(acts.find((a) => a.id === 'sajat').icon, 'star', 'ismeretlen -> altalanos ikon');
 });
+
+test('az upsert visszaadja a usageCount-ot is', () => {
+  // Enélkül a felület mentés után "0 esemény"-t írna egy sokat használt
+  // tevékenységre, a következő lekérésig.
+  const db = fresh();
+  createMarker(db, { id: 'm1', at: 1, activityId: 'alvas' });
+  createMarker(db, { id: 'm2', at: 2, activityId: 'alvas' });
+  const row = upsertActivity(db, {
+    id: 'alvas', label: 'Alvás', color: '#4A56C4', icon: 'moon', sort: 10,
+  });
+  assert.equal(row.usageCount, 2);
+});

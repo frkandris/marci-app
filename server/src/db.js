@@ -121,7 +121,10 @@ export function upsertActivity(db, a) {
        label=excluded.label, color=excluded.color, icon=excluded.icon,
        sort=excluded.sort, archived=excluded.archived`,
   ).run(a.id, a.label, a.color, a.icon ?? null, a.sort, a.archived ? 1 : 0);
-  return toActivity(db.prepare('SELECT * FROM activities WHERE id = ?').get(a.id));
+  // A usageCount is menjen vissza, különben a felület mentés után átmenetileg
+  // "0 esemény"-t mutatna egy sokat használt tevékenységre.
+  return { ...toActivity(db.prepare('SELECT * FROM activities WHERE id = ?').get(a.id)),
+           usageCount: activityUsage(db, a.id) };
 }
 
 /**

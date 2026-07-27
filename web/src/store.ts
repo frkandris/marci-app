@@ -45,16 +45,18 @@ const set = (patch: Partial<State>) => {
   listeners.forEach((f) => f());
 };
 
-async function api<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`/api${path}`, {
+/** MINDEN kérés ezen megy át — enélkül bekapcsolt SHARED_TOKEN mellett 401. */
+const authFetch = (path: string, init?: RequestInit) =>
+  fetch(`/api${path}`, {
     ...init,
     headers: {
       ...(init?.body ? { 'Content-Type': 'application/json' } : {}),
-      // Ha a szerveren be van kapcsolva a SHARED_TOKEN, enélkül minden kérés
-      // 401-et kapna, és az app használhatatlan lenne.
       ...(token ? { 'X-Marci-Token': token } : {}),
     },
   });
+
+async function api<T>(path: string, init?: RequestInit): Promise<T> {
+  const res = await authFetch(path, init);
   if (res.status === 401) {
     set({ needsToken: true, ready: true });
     throw new Error('unauthorized');
@@ -97,6 +99,19 @@ export async function refresh(days = state.daysLoaded) {
 }
 
 export const loadMoreDays = (extra = 30) => refresh(state.daysLoaded + extra);
+
+/**
+ * A Nap nézet korlátlanul lapozható visszafelé, a betöltött ablak viszont
+ * véges. Enélkül a régebbi napok ÜRESNEK látszanának, pedig a szerveren
+ * megvannak — ami adatvesztésnek tűnik.
+ */
+export async function ensureDayLoaded(key: string) {
+  const [dayFrom] = dayBounds(key);
+  const [winFrom] = window_();
+  if (dayFrom >= winFrom) return;
+  const needed = Math.ceil((Date.now() - dayFrom) / 86_400_000) + 2;
+  await refresh(Math.max(needed, state.daysLoaded));
+}
 
 // --- műveletek ------------------------------------------------------------
 // A végpontok visszaadják a mentett sort, ezt írjuk vissza az állapotba.
@@ -153,13 +168,17 @@ export const saveActivity = (a: Activity) =>
       method: 'PUT',
       body: JSON.stringify(a),
     });
+    // A szerver visszaadja a usageCount-ot; ha valamiért mégsem, a korábbi
+    // értéket tartjuk meg, különben a lista átmenetileg "0 esemény"-t írna.
+    const prev = state.activities.find((x) => x.id === row.id);
+    const merged = { ...row, usageCount: row.usageCount ?? prev?.usageCount ?? 0 };
     set({
-      activities: state.activities.some((x) => x.id === row.id)
-        ? state.activities.map((x) => (x.id === row.id ? row : x))
-        : [...state.activities, row],
+      activities: state.activities.some((x) => x.id === merged.id)
+        ? state.activities.map((x) => (x.id === merged.id ? merged : x))
+        : [...state.activities, merged],
       error: null,
     });
-    return row;
+    return merged;
   });
 
 export const archiveActivity = (id: string) =>
@@ -180,7 +199,7 @@ export const unarchiveActivity = (a: Activity) => saveActivity({ ...a, archived:
  */
 export async function deleteActivityHard(id: string, cascade = false): Promise<number | null> {
   const q = `?hard=1${cascade ? '&cascade=1' : ''}`;
-  const res = await fetch(`/api/activities/${encodeURIComponent(id)}${q}`, { method: 'DELETE' });
+  const res = await authFetch(`/activities/${encodeURIComponent(id)}${q}`, { method: 'DELETE' });
   if (res.status === 409) return (await res.json()).usage ?? 0;
   if (!res.ok) {
     set({ error: `Nem sikerült törölni (${res.status})` });
