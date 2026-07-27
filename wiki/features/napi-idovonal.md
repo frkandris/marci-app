@@ -57,6 +57,19 @@ Mindhárom **egyetlen rekord egyetlen mezőjét** írja — ez a
 | **Típus átírása** | Koppintás → típusválasztó | `marker.activity_id` |
 | **Törlés** | Koppintás → Törlés | `activity_id = '__none__'` — a sáv **nem rögzített** lesz |
 
+## Jövőbe nem lehet rögzíteni
+
+A mai nap még el nem telt része **sraffozva** jelenik meg, és nem koppintható.
+
+Ennek konkrét oka van: a `segmentsFor` minden szegmenst levág a jelennél, hogy ne mutasson még el
+nem telt időt megtörténtként. Egy jövőbeli markerből ezért **nem lesz szegmens** — csak egy árva
+fogantyú a semmiben, kezdettel, tartalom nélkül. Pontosan ezt jelentette a felhasználó:
+*„csak egy csík lett belőle, aminek kezdete van"*.
+
+A tiltás tehát nem szigor, hanem a modell következménye: ez az app azt rögzíti, ami **megtörtént**.
+(Ha valaha korábban keletkezett jövőbeli marker, a fogantyúját meg lehet koppintani, és a lapon
+törölni.)
+
 ## Folytatás
 
 Ha a **nap utolsó** tevékenységét nézzük, és épp **semmi nem fut** („Vége" állapotban vagyunk), a

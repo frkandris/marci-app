@@ -187,7 +187,12 @@ export function Day({
     if (!track || e.target !== track) return;
     const y = e.clientY - track.getBoundingClientRect().top;
     const px = Number(getComputedStyle(track).getPropertyValue('--pxh')) || pxPerHour;
-    setNewAt(snap(from + (y / px) * 3600_000));
+    const t = snap(from + (y / px) * 3600_000);
+    // Jövőbe nem lehet rögzíteni: az még nem történt meg. A `segmentsFor`
+    // amúgy is levágja a jelennél, ezért egy jövőbeli markerből csak egy
+    // árva fogantyú lenne — szegmens nélkül.
+    if (t > Date.now()) return;
+    setNewAt(t);
   }
 
   const sheetMarker = sheet ? markers.find((m) => m.id === sheet) : null;
@@ -319,7 +324,11 @@ export function Day({
           ))}
 
           {now >= from && now < to && (
-            <div className="nowline" style={{ '--t': hOf(now) } as React.CSSProperties} />
+            <>
+              <div className="nowline" style={{ '--t': hOf(now) } as React.CSSProperties} />
+              {/* A jövő nem rögzíthető — ez látszódjon is. */}
+              <div className="future" style={{ '--t': hOf(now) } as React.CSSProperties} />
+            </>
           )}
         </div>
       </div>

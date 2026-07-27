@@ -408,6 +408,22 @@ button { cursor: pointer; }
 .handle.is-dragging::after { opacity: 1; height: 2.5px; background: var(--accent); }
 .handle.is-dragging .handle__time { color: var(--accent); font-size: 13px; top: -10px; }
 
+/* A mai nap még el nem telt része: nem rögzíthető, ezért halvány és inert. */
+.future {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(var(--t) * var(--pxh) * 1px);
+  bottom: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--line) 45%, transparent) 0 6px,
+    transparent 6px 12px
+  );
+  opacity: 0.5;
+}
+
 .nowline {
   position: absolute;
   left: 0;

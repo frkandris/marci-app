@@ -7,6 +7,8 @@ merge drivert működőképessé és a fájlt grep-elhetővé:
 
 ## 2026-07-27
 
+* **Hibajavítás**: A napi idővonalon jövőbeli időpontra koppintva létrejött egy marker, amiből **nem lett szegmens** (a `segmentsFor` a jelennél vág), csak egy árva fogantyú. A jövő mostantól sraffozott és nem koppintható — ez az app azt rögzíti, ami megtörtént.
+
 * **Változás**: A „Mégsem ez volt" visszavonás a **legutolsó markerre** vonatkozik, nem csak a futó tevékenységre — így a tévedésből megnyomott „Vége" is visszavonható („Mégsem ért véget — vissza: X").
 * **Létrehozás**: A napi idővonalon a nap utolsó tevékenységét választva, ha semmi nem fut, megjelenik a **Folytatás most** gomb: új markerrel indítja újra ugyanazt. A régi szegmenst szándékosan nem nyújtjuk meg, mert a közben eltelt idő nem az volt.
 
