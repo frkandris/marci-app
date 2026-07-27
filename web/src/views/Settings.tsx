@@ -37,6 +37,18 @@ const slug = (s: string) =>
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-|-$/g, '');
 
+/**
+ * Ütközésmentes azonosító. Enélkül egy második „Séta" (vagy egy ékezet nélküli
+ * „Seta") ugyanarra a slugra képződne, és az upsert NÉMÁN felülírná a meglévő
+ * tevékenységet — az összes régi markere új nevet és színt kapna.
+ */
+export function uniqueId(base: string, taken: Set<string>): string {
+  if (!taken.has(base)) return base;
+  let i = 2;
+  while (taken.has(`${base}-${i}`)) i++;
+  return `${base}-${i}`;
+}
+
 interface Drag {
   from: number;
   to: number;
@@ -67,7 +79,11 @@ export function Settings() {
     e.preventDefault();
     e.stopPropagation();
     const el = e.currentTarget as HTMLElement;
-    el.setPointerCapture(e.pointerId);
+    try {
+      el.setPointerCapture(e.pointerId);
+    } catch {
+      /* nem kritikus */
+    }
     // A sormagasságot a saját sorából olvassuk, nem a lista gyerekeiből: a
     // Konsta List belső szerkezete nem garantált.
     const rowH = el.closest('li')?.offsetHeight ?? 56;
@@ -104,7 +120,9 @@ export function Settings() {
 
   async function save() {
     if (!editing) return;
-    const id = isNew ? slug(editing.label) || `t${Date.now().toString(36)}` : editing.id;
+    const id = isNew
+      ? uniqueId(slug(editing.label) || 't', new Set(activities.map((a) => a.id)))
+      : editing.id;
     await saveActivity({ ...editing, id, label: editing.label.trim() || id });
     setEditing(null);
     setIsNew(false);

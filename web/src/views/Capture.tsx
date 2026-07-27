@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import { Button, Toast } from 'konsta/react';
-import { Icon } from '../icons';
+import { Block, Button, Sheet, Toast } from 'konsta/react';
+import { ICON_NAMES, Icon } from '../icons';
 import { useStore } from '../App';
-import { addMarker, deleteMarker } from '../store';
+import { addMarker, deleteMarker, saveActivity } from '../store';
 import {
   DAY_START_HOUR,
   NONE,
@@ -16,6 +16,15 @@ import {
   segmentsFor,
   shiftDayKey,
 } from '../model';
+
+const PRESETS = [
+  '#4A56C4', '#8B6FD0', '#C0559B', '#D9634E',
+  '#DE8A2C', '#8AA82E', '#3FA36E', '#2A9CBE',
+];
+const PICKABLE = ICON_NAMES.filter((n) => !['record', 'list', 'grid', 'sliders'].includes(n));
+const slug = (s: string) =>
+  s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 
 const STUCK_MS = 12 * 3600_000;
 const UNDO_MS = 7000;
@@ -35,6 +44,7 @@ export function Capture({ onOpenDay }: { onOpenDay: (key: string) => void }) {
   const [backdate, setBackdate] = useState(false);
   const [backTime, setBackTime] = useState('');
   const [undo, setUndo] = useState<{ id: string; label: string } | null>(null);
+  const [draft, setDraft] = useState<{ label: string; icon: string; color: string } | null>(null);
   const undoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Másodpercenként, nem requestAnimationFrame-mel: háttérben az iOS lassítja
@@ -85,6 +95,28 @@ export function Capture({ onOpenDay }: { onOpenDay: (key: string) => void }) {
     setUndo({ id: row.id, label });
     if (undoTimer.current) clearTimeout(undoTimer.current);
     undoTimer.current = setTimeout(() => setUndo(null), UNDO_MS);
+  }
+
+  /** Új tevékenység létrehozása ÉS azonnali indítása, egy lépésben. */
+  async function createAndStart() {
+    if (!draft?.label.trim()) return;
+    const taken = new Set(activities.map((a) => a.id));
+    let id = slug(draft.label) || 't';
+    if (taken.has(id)) {
+      let i = 2;
+      while (taken.has(`${id}-${i}`)) i++;
+      id = `${id}-${i}`;
+    }
+    const row = await saveActivity({
+      id,
+      label: draft.label.trim(),
+      icon: draft.icon,
+      color: draft.color,
+      sort: (live.at(-1)?.sort ?? 0) + 10,
+      archived: false,
+    });
+    setDraft(null);
+    if (row) await record(row.id, row.label);
   }
 
   return (
@@ -171,6 +203,17 @@ export function Capture({ onOpenDay }: { onOpenDay: (key: string) => void }) {
           </button>
         ))}
         <button
+          className="bigbtn bigbtn--new"
+          onClick={() => setDraft({ label: '', icon: 'star', color: PRESETS[live.length % 8] })}
+        >
+          <span className="bigbtn__icon">
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path d="M11 4a1 1 0 0 1 2 0v7h7a1 1 0 0 1 0 2h-7v7a1 1 0 0 1-2 0v-7H4a1 1 0 0 1 0-2h7V4z" />
+            </svg>
+          </span>
+          Új
+        </button>
+        <button
           className="bigbtn bigbtn--none"
           onClick={() => void record(NONE, 'Vége')}
           disabled={backdate && !backTime}
@@ -181,6 +224,61 @@ export function Capture({ onOpenDay }: { onOpenDay: (key: string) => void }) {
           Vége
         </button>
       </div>
+
+      <Sheet opened={!!draft} onBackdropClick={() => setDraft(null)} className="marci-sheet">
+        {draft && (
+          <Block>
+            <div className="preview" style={{ '--c': draft.color } as React.CSSProperties}>
+              <span className="chipicon chipicon--lg" style={{ background: draft.color }}>
+                <Icon name={draft.icon} size={22} />
+              </span>
+              {draft.label || 'Új tevékenység'}
+            </div>
+
+            <input
+              className="bigfield"
+              value={draft.label}
+              placeholder="Név"
+              autoFocus
+              onChange={(e) => setDraft({ ...draft, label: e.target.value })}
+            />
+
+            <div className="picker">
+              {PICKABLE.map((n) => (
+                <button
+                  key={n}
+                  className={`pickbtn ${draft.icon === n ? 'is-active' : ''}`}
+                  onClick={() => setDraft({ ...draft, icon: n })}
+                  aria-label={n}
+                >
+                  <Icon name={n} size={20} />
+                </button>
+              ))}
+            </div>
+
+            <div className="picker picker--colors">
+              {PRESETS.map((c) => (
+                <button
+                  key={c}
+                  className={`pickbtn pickbtn--color ${draft.color.toUpperCase() === c ? 'is-active' : ''}`}
+                  style={{ background: c }}
+                  onClick={() => setDraft({ ...draft, color: c })}
+                  aria-label={`Szín ${c}`}
+                />
+              ))}
+            </div>
+
+            <div className="sheet__row">
+              <Button rounded onClick={() => void createAndStart()} disabled={!draft.label.trim()}>
+                Létrehoz és indít
+              </Button>
+              <Button rounded clear onClick={() => setDraft(null)}>
+                Mégse
+              </Button>
+            </div>
+          </Block>
+        )}
+      </Sheet>
 
       <Toast
         opened={!!undo}

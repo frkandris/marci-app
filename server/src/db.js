@@ -132,6 +132,10 @@ export function archiveActivity(db, id) {
   db.prepare('UPDATE activities SET archived = 1 WHERE id = ?').run(id);
 }
 
+/** A `__none__` pszeudotípus mindig érvényes, de nincs sora az `activities`-ben. */
+export const activityExists = (db, id) =>
+  id === '__none__' || !!db.prepare('SELECT 1 FROM activities WHERE id = ?').get(id);
+
 export const activityUsage = (db, id) =>
   Number(db.prepare('SELECT COUNT(*) AS n FROM markers WHERE activity_id = ?').get(id).n);
 

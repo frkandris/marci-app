@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Block, Button, Segmented, SegmentedButton, Sheet, Toast } from 'konsta/react';
+import { Block, Button, Sheet, Toast } from 'konsta/react';
 import { Icon } from '../icons';
 import { useStore } from '../App';
 import { deleteMarker, updateMarker } from '../store';
@@ -36,7 +36,7 @@ export function Day({
   setDayKey: (k: string) => void;
 }) {
   const { markers, activities } = useStore();
-  const [pxPerHour, setPxPerHour] = useState(64);
+  const [pxPerHour, setPxPerHour] = useState(128);
   const [drag, setDrag] = useState<Drag | null>(null);
   const [sheet, setSheet] = useState<string | null>(null);
   const [undo, setUndo] = useState<{ id: string; at: number } | null>(null);
@@ -84,11 +84,60 @@ export function Day({
     // A `markers` szándékosan NEM függőség: csak nézetváltáskor és
     // nagyításkor tekerünk, különben minden szerkesztés visszaugrana.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key, pxPerHour]);
+  }, [key]);
+
+  // --- Csippentéses nagyítás ------------------------------------------------
+  // Két ujj távolságának arányában skálázunk, és a csippentés középpontja alatti
+  // IDŐPONTOT tartjuk helyben — különben a nézet kicsúszna a kezünk alól.
+  const pointers = useRef(new Map<number, number>());
+  const pinch = useRef<{ dist: number; px: number; midT: number; midY: number } | null>(null);
+
+  function onTrackPointerDown(e: React.PointerEvent) {
+    pointers.current.set(e.pointerId, e.clientY);
+    if (pointers.current.size === 2) {
+      const [a, b] = [...pointers.current.values()];
+      const el = scrollRef.current!;
+      const rect = el.getBoundingClientRect();
+      const midY = (a + b) / 2;
+      const yInTrack = midY - rect.top + el.scrollTop;
+      pinch.current = {
+        dist: Math.abs(a - b),
+        px: pxPerHour,
+        midT: from + (yInTrack / pxPerHour) * 3600_000,
+        midY: midY - rect.top,
+      };
+    }
+  }
+
+  function onTrackPointerMove(e: React.PointerEvent) {
+    if (!pointers.current.has(e.pointerId)) return;
+    pointers.current.set(e.pointerId, e.clientY);
+    const p = pinch.current;
+    if (!p || pointers.current.size !== 2) return;
+    const [a, b] = [...pointers.current.values()];
+    const dist = Math.abs(a - b);
+    if (p.dist < 8) return;
+    const next = Math.min(Math.max((p.px * dist) / p.dist, 24), 360);
+    setPxPerHour(next);
+    // A csippentés alatti időpont maradjon ugyanott a képernyőn.
+    const el = scrollRef.current;
+    if (el) el.scrollTop = ((p.midT - from) / 3600_000) * next - p.midY;
+  }
+
+  function onTrackPointerUp(e: React.PointerEvent) {
+    pointers.current.delete(e.pointerId);
+    if (pointers.current.size < 2) pinch.current = null;
+  }
 
   function onHandleDown(e: React.PointerEvent, id: string, at: number) {
     e.preventDefault();
-    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    // A capture dobhat, ha a pointer közben elveszett; ilyenkor a húzás
+    // MÉG mindig induljon el, különben a fogantyú némán süket marad.
+    try {
+      (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    } catch {
+      /* nem kritikus */
+    }
     const [min, max] = dragBounds(markers, id);
     setDrag({ id, startY: e.clientY, origAt: at, at, min, max });
   }
@@ -104,11 +153,15 @@ export function Day({
     if (!drag) return;
     const d = drag;
     setDrag(null);
-    if (d.at !== d.origAt) {
-      await updateMarker(d.id, { at: d.at });
-      setUndo({ id: d.id, at: d.origAt });
-      setTimeout(() => setUndo((u) => (u?.id === d.id ? null : u)), 6000);
+    if (d.at === d.origAt) {
+      // Nem húzás volt, hanem koppintás: a fogantyú 44 pt-os találati sávja
+      // ráfekszik a szegmensre, ezért enélkül a csík nagy része "süket" lenne.
+      setSheet(d.id);
+      return;
     }
+    await updateMarker(d.id, { at: d.at });
+    setUndo({ id: d.id, at: d.origAt });
+    setTimeout(() => setUndo((u) => (u?.id === d.id ? null : u)), 6000);
   }
 
   const sheetMarker = sheet ? markers.find((m) => m.id === sheet) : null;
@@ -130,17 +183,14 @@ export function Day({
         </button>
       </header>
 
-      <div className="day__zoom">
-        <Segmented strong>
-          {([32, 64, 128] as const).map((p) => (
-            <SegmentedButton key={p} active={pxPerHour === p} onClick={() => setPxPerHour(p)}>
-              {p === 32 ? 'Teljes nap' : p === 64 ? 'Normál' : 'Közeli'}
-            </SegmentedButton>
-          ))}
-        </Segmented>
-      </div>
-
-      <div className="day__scroll" ref={scrollRef}>
+      <div
+        className="day__scroll"
+        ref={scrollRef}
+        onPointerDown={onTrackPointerDown}
+        onPointerMove={onTrackPointerMove}
+        onPointerUp={onTrackPointerUp}
+        onPointerCancel={onTrackPointerUp}
+      >
         <div className="day__track" ref={trackRef} style={{ height }}>
           {hours.map((h) => (
             <div key={h.t} className="hourline" style={{ top: yOf(h.t) }}>

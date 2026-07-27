@@ -7,6 +7,7 @@ import { serve } from '@hono/node-server';
 import { Hono } from 'hono';
 
 import {
+  activityExists,
   archiveActivity,
   createMarker,
   deleteActivity,
@@ -46,7 +47,10 @@ api.use('*', async (c, next) => {
   // A healthcheck MINDIG szabad: a Docker HEALTHCHECK nem küld fejlécet, tehát
   // bekapcsolt SHARED_TOKEN mellett minden ellenőrzés elbukna, és a deploy
   // meghiúsulna egy tökéletesen működő szerver mellett is.
-  const open = c.req.path === '/health';
+  // A Hono a mountolt al-appban is a TELJES utat adja vissza, ezért itt
+  // '/api/health' kell — a relatív '/health' sosem illeszkedne, és a
+  // healthcheck 401-et kapna bekapcsolt tokennél.
+  const open = c.req.path === '/api/health';
   if (!open && SHARED_TOKEN && c.req.header('X-Marci-Token') !== SHARED_TOKEN) {
     return c.json({ error: 'unauthorized' }, 401);
   }
@@ -117,6 +121,9 @@ api.post('/markers', async (c) => {
   if (!Number.isFinite(b.at)) return c.json({ error: 'at' }, 400);
   if (typeof b.activityId !== 'string' || !b.activityId)
     return c.json({ error: 'activityId' }, 400);
+  // Árva marker megelőzése: a másik telefon közben véglegesen törölhette a
+  // tevékenységet. Árván a régi napok név és szín nélkül maradnának.
+  if (!activityExists(db, b.activityId)) return c.json({ error: 'unknown activityId' }, 409);
   const id = typeof b.id === 'string' && b.id ? b.id : crypto.randomUUID();
   return c.json(createMarker(db, { id, at: b.at, activityId: b.activityId, note: b.note ?? null }), 201);
 });
@@ -127,6 +134,8 @@ api.patch('/markers/:id', async (c) => {
   if (b.at !== undefined && !Number.isFinite(b.at)) return c.json({ error: 'at' }, 400);
   if (b.activityId !== undefined && (typeof b.activityId !== 'string' || !b.activityId))
     return c.json({ error: 'activityId' }, 400);
+  if (b.activityId !== undefined && !activityExists(db, b.activityId))
+    return c.json({ error: 'unknown activityId' }, 409);
   const row = updateMarker(db, c.req.param('id'), b);
   return row ? c.json(row) : c.json({ error: 'not found' }, 404);
 });
@@ -202,6 +211,12 @@ app.get('*', async (c) => {
   }
 });
 
-serve({ fetch: app.fetch, port: PORT }, ({ port }) => {
-  console.log(`marci-server :${port}  db=${DB_PATH}  auth=${SHARED_TOKEN ? 'on' : 'off'}`);
-});
+export { app, db };
+
+// Csak közvetlen futtatáskor indítunk szervert — így a tesztek importálhatják
+// az appot anélkül, hogy portot foglalnának.
+if (process.argv[1] && import.meta.url === `file://${process.argv[1]}`) {
+  serve({ fetch: app.fetch, port: PORT }, ({ port }) => {
+    console.log(`marci-server :${port}  db=${DB_PATH}  auth=${SHARED_TOKEN ? 'on' : 'off'}`);
+  });
+}

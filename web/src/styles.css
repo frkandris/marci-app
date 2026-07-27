@@ -254,7 +254,8 @@ button { cursor: pointer; }
 .bigbtn:active { transform: scale(0.975); }
 .bigbtn:disabled { opacity: 0.35; }
 .bigbtn__icon { display: grid; place-items: center; color: var(--c); flex: none; }
-.bigbtn--none { --c: #8b93a5; grid-column: span 2; }
+.bigbtn--none { --c: #8b93a5; }
+.bigbtn--new { --c: var(--accent); border-style: dashed; }
 
 /* --- Napi idővonal ------------------------------------------------------ */
 
@@ -278,9 +279,15 @@ button { cursor: pointer; }
 .day__title { text-align: center; font-size: 13.5px; }
 .day__title strong { display: block; font-weight: 600; }
 
-.day__zoom { padding: 0 16px 12px; }
 
-.day__scroll { flex: 1; overflow-y: auto; overscroll-behavior: contain; padding: 0 16px 40px; }
+
+.day__scroll {
+  flex: 1;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0 16px 40px;
+  touch-action: pan-y;
+}
 .day__track { position: relative; margin-left: 32px; }
 
 .hourline { position: absolute; left: -32px; right: 0; border-top: 1px solid var(--line); }
@@ -569,6 +576,17 @@ button { cursor: pointer; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
+
+.gate {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  justify-content: center;
+  height: 100dvh;
+  padding: 0 24px;
+  max-width: 420px;
+  margin: 0 auto;
 }
 
 /* --- Konsta-illesztés ---------------------------------------------------- */

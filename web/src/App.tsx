@@ -1,6 +1,6 @@
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import { App as KonstaApp, Tabbar, TabbarLink } from 'konsta/react';
-import { applyUpdate, getState, init, subscribe } from './store';
+import { applyUpdate, getState, init, setToken, subscribe } from './store';
 import { Capture } from './views/Capture';
 import { Day } from './views/Day';
 import { Overview } from './views/Overview';
@@ -32,6 +32,27 @@ export function App() {
   };
 
   if (!s.ready) return <div className="boot">Betöltés…</div>;
+
+  // Csak akkor jelenik meg, ha a szerveren be van kapcsolva a SHARED_TOKEN.
+  if (s.needsToken) {
+    return (
+      <KonstaApp theme="ios" safeAreas={false} className="marci-root">
+        <form
+          className="gate"
+          onSubmit={(e) => {
+            e.preventDefault();
+            setToken(new FormData(e.currentTarget).get('t') as string);
+          }}
+        >
+          <h2 className="eyebrow">Jelszó</h2>
+          <input className="bigfield" name="t" type="password" autoFocus />
+          <button className="wide" type="submit">
+            Belépés
+          </button>
+        </form>
+      </KonstaApp>
+    );
+  }
 
   return (
     // A Konsta iOS témája adja a natív érzetű tipográfiát, az érintés-

@@ -10,8 +10,13 @@ const INITIAL_DAYS = 45;
 /** A másik telefon változásai ennyi időn belül jelennek meg. */
 const POLL_MS = 30_000;
 
+const TOKEN_KEY = 'marci-token';
+let token = localStorage.getItem(TOKEN_KEY) ?? '';
+
 export interface State {
   ready: boolean;
+  /** A szerver tokent kér, de nincs (vagy rossz) — beviteli képernyő kell. */
+  needsToken: boolean;
   markers: Marker[];
   activities: Activity[];
   daysLoaded: number;
@@ -23,6 +28,7 @@ export interface State {
 
 let state: State = {
   ready: false,
+  needsToken: false,
   markers: [],
   activities: [],
   daysLoaded: INITIAL_DAYS,
@@ -42,8 +48,17 @@ const set = (patch: Partial<State>) => {
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`/api${path}`, {
     ...init,
-    headers: init?.body ? { 'Content-Type': 'application/json' } : undefined,
+    headers: {
+      ...(init?.body ? { 'Content-Type': 'application/json' } : {}),
+      // Ha a szerveren be van kapcsolva a SHARED_TOKEN, enélkül minden kérés
+      // 401-et kapna, és az app használhatatlan lenne.
+      ...(token ? { 'X-Marci-Token': token } : {}),
+    },
   });
+  if (res.status === 401) {
+    set({ needsToken: true, ready: true });
+    throw new Error('unauthorized');
+  }
   if (!res.ok) {
     let detail = String(res.status);
     try {
@@ -131,6 +146,7 @@ export const deleteMarker = (id: string) =>
     set({ markers: state.markers.filter((m) => m.id !== id), error: null });
   });
 
+/** A mentett sorral tér vissza, hogy a hívó azonnal el tudja indítani. */
 export const saveActivity = (a: Activity) =>
   guard(async () => {
     const row = await api<Activity>(`/activities/${encodeURIComponent(a.id)}`, {
@@ -143,6 +159,7 @@ export const saveActivity = (a: Activity) =>
         : [...state.activities, row],
       error: null,
     });
+    return row;
   });
 
 export const archiveActivity = (id: string) =>
@@ -186,6 +203,14 @@ export const reorderActivities = (ids: string[]) =>
     });
     set({ activities: rows, error: null });
   });
+
+/** A megosztott jelszó beállítása. Lásd wiki/decisions/2026-07-27-nincs-hitelesites.md. */
+export function setToken(t: string) {
+  token = t.trim();
+  localStorage.setItem(TOKEN_KEY, token);
+  set({ needsToken: false, error: null });
+  void refresh();
+}
 
 // --- verziófrissítés ------------------------------------------------------
 // A service worker jelez, az app pedig SAJÁT sávban kínálja fel — soha nem
