@@ -29,6 +29,7 @@ Miért így épül, és nem másképp. A *Miért* szakasz a teherhordó.
 * [Határjelölő adatmodell intervallumok helyett](decisions/2026-07-27-hatarjelolo-adatmodell.md) - a húzogatás egyetlen mezőt módosít, az átfedésmentesség konstrukcióból következik
 * [Online-only, a szerver az egyetlen igazságforrás](decisions/2026-07-27-online-only.md) - nincs kliensoldali tár és nincs ütközésfeloldás; ez váltotta fel az eredeti offline-first tervet
 * [Nincs hitelesítés](decisions/2026-07-27-nincs-hitelesites.md) - a felhasználó tudatos döntése; a kockázat és a visszaút rögzítve
+* [Konsta UI a vázhoz](decisions/2026-07-27-konsta-ui.md) - keretrendszer a listákhoz és lapokhoz, saját CSS a napsávhoz és az idővonalhoz
 * [SQLite adattár](decisions/2026-07-27-sqlite-adattar.md) - egy fájl, egy volume, triviális mentés
 * [Egy konténer, egy domain](decisions/2026-07-27-egy-konteneres-deploy.md) - a statikus frontendet is az API szolgálja ki, így nincs CORS és nincs második service
 * [Logikai napkezdet 04:00-kor](decisions/2026-07-27-logikai-napkezdet.md) - az alvás átnyúlik éjfélen, a naptári nap rossz vágás

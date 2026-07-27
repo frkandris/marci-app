@@ -7,6 +7,12 @@ merge drivert működőképessé és a fájlt grep-elhetővé:
 
 ## 2026-07-27
 
+* **Döntés**: [Konsta UI a vázhoz](decisions/2026-07-27-konsta-ui.md) — Tailwind v4 + iOS téma; a napsáv, idővonal és gombrács saját CSS-ben marad, mert ezekre nincs komponens.
+* **Buktató**: A Konsta a `.dark` OSZTÁLYRA szűr, nem `prefers-color-scheme`-re — a `main.tsx` kézzel tartja szinkronban.
+* **Buktató**: A Konsta `ListInput` **fehér képernyővel elszáll** (5.2.0): `title: null`-t ad tovább, a `cls()` pedig elhasal `null` argumentumon. Saját input maradt.
+* **Hibajavítás**: Codex review 7 találata javítva — köztük a healthcheck 401-je bekapcsolt `SHARED_TOKEN` mellett, és a `dayKey` nyári időszámítás-hibája (mérve: 4 rossz napbesorolás). Új invariáns-teszt őrzi.
+* **Létrehozás**: Teljes kategóriakezelés — létrehozás, szerkesztés, drag-and-drop sorrendezés, archiválás és végleges törlés használat-ellenőrzéssel.
+* **Létrehozás**: Saját 16 elemű flat SVG ikonkészlet emoji helyett (v3 migrációval), `wiki/bugs/` postmortem a `confirm()`-fagyásról.
 * **Deploy**: Az app **él** a `https://marci.kozossegek.com` címen. Coolify-projekt `marci` (`mmhmv2jt5v06a3uochio570d`), alkalmazás `yo75ku697v37lvjaotkrmwra`, volume `yo75ku697v37lvjaotkrmwra-marci-data` → `/data`.
 * **Ellenőrzés**: A perzisztens volume **túlélt egy teljes force-újraépítést** — sentinel markerrel mérve. Ez a projekt legveszélyesebb hibalehetősége, és bizonyítottan nem áll fenn.
 * **Hibajavítás**: Az első deploy elhasalt, mert a Coolify a `NODE_ENV=production`-t **build időben is** beinjektálta, amitől az `npm ci` kihagyta a devDependencies-t (nincs vite, nincs typescript). A Dockerfile build fázisa mostantól explicit `NODE_ENV=development`-et állít és `--include=dev`-vel telepít. Részletek: [deploy](workflows/deploy.md).

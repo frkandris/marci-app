@@ -15,7 +15,7 @@ Egyelőre nincs. A projektnek még nincs kódja.
 
 ## Megoldott
 
-Egyelőre nincs.
+* [2026-07-27 — A confirm() befagyasztotta az egész appot](2026-07-27-confirm-blokkolta-a-renderert.md) - a natív dialógus blokkolja a renderert; a tanulság általánosítható
 
 ## Amire számítani lehet
 

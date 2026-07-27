@@ -16,6 +16,7 @@ Váz: Kontextus / Mérlegelt opciók / Döntés / **Miért** / Következmények.
 * [2026-07-27 — Nincs hitelesítés](2026-07-27-nincs-hitelesites.md) - tudatosan vállalt kockázat, dokumentált visszaúttal
 * [2026-07-27 — SQLite adattár](2026-07-27-sqlite-adattar.md) - egy fájl egy volume-on; a mentés egy `cp`
 * [2026-07-27 — Egy konténer, egy domain](2026-07-27-egy-konteneres-deploy.md) - a Hono szolgálja ki a statikus buildet is; nincs CORS, nincs második service
+* [2026-07-27 — Konsta UI a vázhoz](2026-07-27-konsta-ui.md) - a fülsáv, listák és lapok a keretrendszerből; a napsáv és az idővonal saját CSS-ben marad
 * [2026-07-27 — Logikai napkezdet 04:00-kor](2026-07-27-logikai-napkezdet.md) - az éjszakai alvás nem törik ketté a napi soron
 
 ## Felülírt
