@@ -115,9 +115,10 @@ export function Capture({ onOpenDay }: { onOpenDay: (key: string) => void }) {
   const colorOf = (id: string) => activities.find((a) => a.id === id)?.color ?? '#8b93a5';
 
   async function record(activityId: string, label: string) {
-    // Mindig a jelen pillanat. Az utólagos javítás a Nap nézet dolga, ahol a
-    // határok húzhatók — így a rögzítés egyetlen koppintás marad.
-    const row = await addMarker(activityId, now);
+    // FRISS időbélyeg, nem a másodpercenként frissülő `now`: két gyors
+    // koppintás különben azonos `at`-et kapna, és a sorrendjüket a véletlen
+    // UUID döntené el — a „Vége" akár a tevékenység ELÉ kerülhetne.
+    const row = await addMarker(activityId, Date.now());
     if (!row) return;
     // Megerősítés helyett visszavonás: a téves koppintás olcsón javítható, a
     // helyes rögzítés viszont nem drágul meg egy párbeszéddel.
@@ -144,8 +145,11 @@ export function Capture({ onOpenDay }: { onOpenDay: (key: string) => void }) {
       sort: (live.at(-1)?.sort ?? 0) + 10,
       archived: false,
     });
+    // Sikertelen mentésnél NE dobjuk el a beírt adatokat — a hibasáv jelzi a
+    // bajt, a felhasználó pedig újrapróbálhatja.
+    if (!row) return;
     setDraft(null);
-    if (row) await record(row.id, row.label);
+    await record(row.id, row.label);
   }
 
   return (

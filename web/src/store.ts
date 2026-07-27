@@ -137,6 +137,11 @@ const upsertLocal = (row: Marker) =>
   });
 
 async function guard<T>(fn: () => Promise<T>): Promise<T | null> {
+  // Minden mutáció ELAVULTTÁ tesz minden folyamatban lévő lekérést. Enélkül
+  // egy korábban indult poll a régi pillanatképével felülírná a friss
+  // változtatást — a törölt szegmens visszajönne, az új eltűnne. Ez okozta,
+  // hogy a Törlés gomb néha "nem hatott".
+  refreshGen++;
   try {
     return await fn();
   } catch (e) {

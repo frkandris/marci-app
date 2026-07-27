@@ -71,7 +71,9 @@ export function Settings() {
     const id = isNew
       ? uniqueId(slug(editing.label) || 't', new Set(activities.map((a) => a.id)))
       : editing.id;
-    await saveActivity({ ...editing, id, label: editing.label.trim() || id });
+    const row = await saveActivity({ ...editing, id, label: editing.label.trim() || id });
+    // Hibánál nyitva marad, hogy a beírt adatok ne vesszenek el.
+    if (!row) return;
     setEditing(null);
     setIsNew(false);
   }
