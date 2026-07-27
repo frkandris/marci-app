@@ -7,6 +7,8 @@ merge drivert működőképessé és a fájlt grep-elhetővé:
 
 ## 2026-07-28
 
+* **Hibajavítás**: A futtató image nem tartalmazta az `sqlite3` CLI-t, így a [mentési runbook](runbooks/mentes-visszaallitas.md) minden parancsa élesben elszállt volna („executable file not found"). Hozzáadva (`apk add sqlite`), és a `.backup` lokális Dockerben leellenőrizve.
+
 * **Éjszakai review-sorozat**: 7 kör codex review, 16 valódi hiba javítva. A legsúlyosabbak: nem atomi kezdeti migráció (megszakadás esetén véglegesen megnyithatatlan adatbázis), átéjszakázó szegmens vég-szerkesztése (~1 ms-ra omlasztotta volna), kaszkádolt törlés, ami az előző tevékenységnek tulajdonította a sávot, és a létrehozás-verseny két telefon között.
 * **Változás**: A tevékenység-azonosítót mostantól a **szerver** osztja ki (`POST /api/activities`); a `PUT` csak meglévőt módosít. A kliens oldali slug-számítás kikerült.
 * **Takarítás**: Az `archiveActivity`/`unarchiveActivity` holt kód lett a kliensben (a felület nem kínál archiválást), ezért eltávolítva. A szerveroldali képesség megmaradt.

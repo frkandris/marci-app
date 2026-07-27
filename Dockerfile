@@ -32,6 +32,11 @@ FROM node:24-alpine
 WORKDIR /app
 ENV NODE_ENV=production PORT=3000 DB_PATH=/data/marci.db
 
+# Az sqlite3 CLI a MENTÉSHEZ kell: a runbook `sqlite3 ... ".backup"`-ot hív,
+# ami futó adatbázisról is konzisztens pillanatképet ad. Az alap node:alpine
+# image nem tartalmazza, enélkül a dokumentált mentés élesben elszállna.
+RUN apk add --no-cache sqlite
+
 COPY --from=deps /app/node_modules ./node_modules
 COPY server/ ./server/
 COPY --from=build /app/web/dist ./web/dist

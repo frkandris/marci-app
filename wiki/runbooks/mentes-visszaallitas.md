@@ -7,6 +7,9 @@ status: stable
 generated: { by: "anthropic/claude-opus-5", at: "2026-07-27T20:10:00Z" }
 ---
 
+> **A parancsok élesben leellenőrizve** (2026-07-28, lokális Docker): az image tartalmazza az
+> `sqlite3` CLI-t, és a `.backup` futó adatbázisról is konzisztens másolatot ad.
+>
 > A parancsok a most élő elrendezésre vonatkoznak. A volume neve `yo75ku697v37lvjaotkrmwra-marci-data`, a mountpont `/data`.
 
 # Miért fontos ez jobban, mint amennyire látszik
