@@ -154,6 +154,11 @@ felhasználó a valós állapoton húzhat újra.
 A holtversenytörés itt is `(at, id)` — ugyanaz, amivel a `listMarkers` és a kliens rendez,
 különben mást jelentene a „szomszéd" a két oldalon.
 
+A kliens ezen felül **markerenként sorosítja** a kéréseket: egy határt gyorsan kétszer elhúzva a
+két `PATCH` egyszerre indulna, a válaszok sorrendje viszont nem garantált — a régebbi felülírná a
+frissebbet, sőt a szerveren is maradhatna az, amit a felhasználó másodikként már elvetett.
+Különböző markerek továbbra is párhuzamosak. (`serial()` a `web/src/store.ts`-ben.)
+
 ## A carry-in — a rendszer legkönnyebben elrontható pontja
 
 A `GET /api/markers?from&to` **mindig elhozza a `from` előtti utolsó markert is.**

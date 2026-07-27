@@ -4,6 +4,9 @@
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "module": "ESNext",
     "moduleResolution": "bundler",
+    // Explicit .ts import: enélkül a node --test nem oldaná fel a store
+    // belső importját, és a hálózati viselkedés tesztelhetetlen maradna.
+    "allowImportingTsExtensions": true,
     "jsx": "react-jsx",
     "strict": true,
     "noUnusedLocals": true,

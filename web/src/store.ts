@@ -3,7 +3,7 @@
  * nincs dirty flag, nincs ütközésfeloldás.
  * Lásd wiki/decisions/2026-07-27-online-only.md.
  */
-import { NONE, dayBounds, dayKey, shiftDayKey, type Activity, type Marker } from './model';
+import { NONE, dayBounds, dayKey, shiftDayKey, type Activity, type Marker } from './model.ts';
 
 /** Hány napra visszamenőleg töltünk be egyszerre. A Napok nézet ezt bővíti. */
 const INITIAL_DAYS = 45;
@@ -172,6 +172,30 @@ const upsertLocal = (row: Marker) =>
     error: null,
   });
 
+/**
+ * Ugyanarra a markerre vonatkozó műveletek SOROSÍTÁSA.
+ *
+ * Egy határt gyorsan kétszer elhúzva két PATCH indulna egyszerre. A válaszok
+ * sorrendje nem garantált: a régebbi felülírhatja a frissebbet a helyi
+ * állapotban, sőt a kérések sorrendje sem az — a SZERVEREN maradhat az, amit
+ * a felhasználó másodikként már elvetett. Ezért a következő kérés csak az
+ * előző lezárultával indul.
+ *
+ * A kulcs a marker azonosítója: különböző markerek továbbra is párhuzamosak.
+ */
+const chains = new Map<string, Promise<unknown>>();
+
+function serial<T>(key: string, fn: () => Promise<T>): Promise<T> {
+  // A láncbeli `catch` azért kell, hogy egy elbukott kérés ne akassza meg a
+  // sorban mögötte állókat.
+  const next = (chains.get(key) ?? Promise.resolve()).catch(() => {}).then(fn);
+  chains.set(key, next);
+  void next.catch(() => {}).then(() => {
+    if (chains.get(key) === next) chains.delete(key);
+  });
+  return next;
+}
+
 async function guard<T>(fn: () => Promise<T>): Promise<T | null> {
   // Minden mutáció ELAVULTTÁ tesz minden folyamatban lévő lekérést. Enélkül
   // egy korábban indult poll a régi pillanatképével felülírná a friss
@@ -202,31 +226,37 @@ export const addMarker = (activityId: string, at = Date.now(), note: string | nu
   });
 
 export const updateMarker = (id: string, patch: Partial<Marker>) =>
-  guard(async () => {
-    try {
-      return upsertLocal(
-        await api<Marker>(`/markers/${encodeURIComponent(id)}`, {
-          method: 'PATCH',
-          body: JSON.stringify(patch),
-        }),
-      );
-    } catch (e) {
-      // 409: a szerver visszautasította, mert a másik telefon közben
-      // elmozdította a szomszédos határt. A helyi kép ilyenkor BIZTOSAN
-      // elavult, ezért azonnal frissítünk — különben a felhasználó a 30 mp-es
-      // lekérdezésig a régi állapoton próbálkozna újra. A `setTimeout` azért
-      // kell, hogy a lekérés a `guard` záró generációlépése UTÁN induljon,
-      // különben saját magát érvénytelenítené.
-      if ((e as { status?: number }).status === 409) setTimeout(() => void refresh(), 0);
-      throw e;
-    }
-  });
+  guard(() =>
+    serial(id, async () => {
+      try {
+        return upsertLocal(
+          await api<Marker>(`/markers/${encodeURIComponent(id)}`, {
+            method: 'PATCH',
+            body: JSON.stringify(patch),
+          }),
+        );
+      } catch (e) {
+        // 409: a szerver visszautasította, mert a másik telefon közben
+        // elmozdította a szomszédos határt. A helyi kép ilyenkor BIZTOSAN
+        // elavult, ezért azonnal frissítünk — különben a felhasználó a 30
+        // mp-es lekérdezésig a régi állapoton próbálkozna újra. A `setTimeout`
+        // azért kell, hogy a lekérés a `guard` záró generációlépése UTÁN
+        // induljon, különben saját magát érvénytelenítené.
+        if ((e as { status?: number }).status === 409) setTimeout(() => void refresh(), 0);
+        throw e;
+      }
+    }),
+  );
 
 export const deleteMarker = (id: string) =>
-  guard(async () => {
-    await api<void>(`/markers/${encodeURIComponent(id)}`, { method: 'DELETE' });
-    set({ markers: state.markers.filter((m) => m.id !== id), error: null });
-  });
+  guard(() =>
+    serial(id, async () => {
+      // Ugyanabban a sorban, mint a módosítás: különben egy még úton lévő
+      // PATCH válasza a törlés UTÁN írná vissza a markert.
+      await api<void>(`/markers/${encodeURIComponent(id)}`, { method: 'DELETE' });
+      set({ markers: state.markers.filter((m) => m.id !== id), error: null });
+    }),
+  );
 
 /**
  * Új tevékenység. Az azonosítót a SZERVER osztja ki — a kliens nem tud
