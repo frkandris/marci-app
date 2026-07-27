@@ -48,7 +48,8 @@ alvás), és enélkül a nap eleje üresnek látszana — ami adatvesztésnek t�
 **Ablak** — Az a nap-tartomány, amit a kliens éppen a memóriában tart (alapból 45 nap
 visszamenőleg). A Napok nézet „Korábbi napok" gombja bővíti.
 
-**Archiválás** — A tevékenységtípus `archived` jelölést kap, nem törlődik. Oka **nem** a szinkron:
+**Archiválás** — A tevékenységtípus `archived` jelölést kap, nem törlődik. **A felületen nem
+érhető el** (a felhasználó döntése), csak a szerver ismeri. Oka **nem** a szinkron:
 fizikai törlésnél a rá hivatkozó régi markerek árván maradnának, és a múltbeli napok
 olvashatatlanná válnának.
 

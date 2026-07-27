@@ -89,10 +89,19 @@ CREATE TABLE activities (
 );
 ```
 
-**A törlés itt is soft delete**, és ennek külön oka van: ha egy típust fizikailag törölnénk, a rá
-hivatkozó **régi markerek árván maradnának**, és a múltbeli napok olvashatatlanná válnának. A
-törölt típus eltűnik a gyorsrögzítő gombok közül, de a régi szegmensek továbbra is helyesen
-jelennek meg.
+# Törlés
+
+A felületen **egyetlen Törlés gomb** van. Használatban nem lévő típusnál azonnal töröl;
+használatban lévőnél egy megerősítés megmondja, hány esemény érintett, és a törlés után azok
+**sávja üresre vált** (`__none__`) — nem tűnnek el, és nem is kerülnek az előző tevékenységhez.
+
+**Archiválás a felületen nincs**, pedig a szerver ismeri (`DELETE` `hard` nélkül, `archived`
+oszlop). A felhasználó kifejezetten így kérte: *„törlés és archiválás nem kell külön"*. A
+szerveroldali képesség megmaradt, mert olcsó és bármikor visszahozható — de amíg nincs felület
+hozzá, a listák az `archived` sorokat egyszerűen kihagyják.
+
+Az azonosítót **a szerver osztja ki** létrehozáskor: ha a kliens adná a saját listája alapján,
+két telefon ugyanazt a slugot választhatná, és a második némán felülírná az elsőt.
 
 A `sort` mező már **nem a gombok sorrendjét adja**: azt a
 [használati pontszám](/features/gyorsrogzites.md#sorrend-használat-szerint) határozza meg,

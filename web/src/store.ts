@@ -241,17 +241,6 @@ export const saveActivity = (a: Activity) =>
     return merged;
   });
 
-export const archiveActivity = (id: string) =>
-  guard(async () => {
-    await api<void>(`/activities/${encodeURIComponent(id)}`, { method: 'DELETE' });
-    set({
-      activities: state.activities.map((a) => (a.id === id ? { ...a, archived: true } : a)),
-      error: null,
-    });
-  });
-
-export const unarchiveActivity = (a: Activity) => saveActivity({ ...a, archived: false });
-
 /**
  * Végleges törlés. `cascade` nélkül a szerver 409-cel elutasítja, ha markerek
  * hivatkoznak rá — így nem lehet véletlenül árva adatot csinálni.

@@ -130,8 +130,9 @@ olvashatatlanná válnának.
 | `PATCH /api/markers/:id` | Részleges módosítás → a mentett sor |
 | `DELETE /api/markers/:id` | Valódi törlés (204) |
 | `GET /api/activities` | Az összes típus, az archiváltakkal együtt |
-| `PUT /api/activities/:id` | Upsert |
-| `DELETE /api/activities/:id` | Archiválás (nem törlés) |
+| `PUT /api/activities/:id` | **Meglévő** módosítása (404, ha nincs) |
+| `POST /api/activities` | Létrehozás — **az azonosítót a szerver osztja** |
+| `DELETE /api/activities/:id` | Archiválás. `?hard=1` végleges törlés, `&cascade=1` a használatban lévőnél is |
 
 Az ismeretlen `/api/*` útvonal **JSON 404-et** ad, nem esik át az SPA-fallbackre — különben
 `index.html` jönne 200-zal, ami a kliensen JSON-parse hibaként jelentkezne.

@@ -5,6 +5,12 @@ merge drivert működőképessé és a fájlt grep-elhetővé:
 
     grep "^\* " wiki/log.md | head -20
 
+## 2026-07-28
+
+* **Éjszakai review-sorozat**: 7 kör codex review, 16 valódi hiba javítva. A legsúlyosabbak: nem atomi kezdeti migráció (megszakadás esetén véglegesen megnyithatatlan adatbázis), átéjszakázó szegmens vég-szerkesztése (~1 ms-ra omlasztotta volna), kaszkádolt törlés, ami az előző tevékenységnek tulajdonította a sávot, és a létrehozás-verseny két telefon között.
+* **Változás**: A tevékenység-azonosítót mostantól a **szerver** osztja ki (`POST /api/activities`); a `PUT` csak meglévőt módosít. A kliens oldali slug-számítás kikerült.
+* **Takarítás**: Az `archiveActivity`/`unarchiveActivity` holt kód lett a kliensben (a felület nem kínál archiválást), ezért eltávolítva. A szerveroldali képesség megmaradt.
+
 ## 2026-07-27
 
 * **Javítás**: A napi nézet „Folytatás" gombja **új eseményt hozott létre** a folytatás helyett. Mostantól a lezáró `__none__` markert dobja el, amitől az eredeti szegmens folytatódik; a gomb kiírja, mennyi idő adódik hozzá.
