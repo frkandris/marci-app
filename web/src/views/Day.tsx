@@ -396,7 +396,7 @@ export function Day({
               </button>
             </div>
             <div className="sheet__row">
-              <Button rounded clear onClick={() => setNewAt(null)}>
+              <Button rounded tonal onClick={() => setNewAt(null)}>
                 Mégse
               </Button>
             </div>
@@ -489,7 +489,7 @@ export function Day({
               >
                 Törlés
               </Button>
-              <Button rounded clear onClick={() => setSheet(null)}>
+              <Button rounded tonal onClick={() => setSheet(null)}>
                 Kész
               </Button>
             </div>

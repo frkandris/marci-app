@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import { Block, Button, Sheet, Toast } from 'konsta/react';
+import { Actions, ActionsButton, ActionsGroup, ActionsLabel, Block, Button, Sheet, Toast } from 'konsta/react';
 import { ICON_NAMES, Icon } from '../icons';
 import { useStore } from '../App';
-import { addMarker, deleteMarker, saveActivity } from '../store';
+import { addMarker, deleteActivityHard, deleteMarker, saveActivity } from '../store';
 import {
   DAY_START_HOUR,
   activeMarkers,
@@ -48,7 +48,26 @@ export function Capture({ onOpenDay }: { onOpenDay: (key: string) => void }) {
   const { markers, activities } = useStore();
   const [now, setNow] = useState(Date.now());
   const [undo, setUndo] = useState<{ id: string; label: string } | null>(null);
-  const [draft, setDraft] = useState<{ label: string; icon: string; color: string } | null>(null);
+  /** `id === null` → új tevékenység (létrehozás + indítás); különben szerkesztés. */
+  const [draft, setDraft] = useState<
+    { id: string | null; label: string; icon: string; color: string } | null
+  >(null);
+  const [confirmDelete, setConfirmDelete] = useState<{ id: string; usage: number } | null>(null);
+
+  // Hosszú nyomás a kártyán = szerkesztő. A koppintás továbbra is rögzít.
+  const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longPressed = useRef(false);
+
+  function pressStart(a: (typeof live)[number]) {
+    longPressed.current = false;
+    pressTimer.current = setTimeout(() => {
+      longPressed.current = true;
+      setDraft({ id: a.id, label: a.label, icon: a.icon ?? 'star', color: a.color });
+    }, 500);
+  }
+  const pressEnd = () => {
+    if (pressTimer.current) clearTimeout(pressTimer.current);
+  };
   const stripRef = useRef<HTMLDivElement>(null);
   const tapStart = useRef<{ x: number; scroll: number } | null>(null);
   const undoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -127,9 +146,19 @@ export function Capture({ onOpenDay }: { onOpenDay: (key: string) => void }) {
     undoTimer.current = setTimeout(() => setUndo(null), UNDO_MS);
   }
 
-  /** Új tevékenység létrehozása ÉS azonnali indítása, egy lépésben. */
-  async function createAndStart() {
+  /** Mentés: meglévőnél csak frissít, újnál létrehoz ÉS azonnal el is indít. */
+  async function saveDraft() {
     if (!draft?.label.trim()) return;
+
+    if (draft.id) {
+      const cur = allLive.find((a) => a.id === draft.id);
+      if (!cur) return;
+      const row = await saveActivity({ ...cur, label: draft.label.trim(), icon: draft.icon, color: draft.color });
+      if (!row) return;
+      setDraft(null);
+      return;
+    }
+
     const taken = new Set(activities.map((a) => a.id));
     let id = slug(draft.label) || 't';
     if (taken.has(id)) {
@@ -152,6 +181,12 @@ export function Capture({ onOpenDay }: { onOpenDay: (key: string) => void }) {
     if (!row) return;
     setDraft(null);
     await record(row.id, row.label);
+  }
+
+  async function tryDelete(id: string) {
+    const usage = await deleteActivityHard(id, false);
+    if (usage !== null) setConfirmDelete({ id, usage });
+    else setDraft(null);
   }
 
   return (
@@ -240,7 +275,19 @@ export function Capture({ onOpenDay }: { onOpenDay: (key: string) => void }) {
             key={a.id}
             className="bigbtn"
             style={{ '--c': a.color } as React.CSSProperties}
-            onClick={() => void record(a.id, a.label)}
+            onPointerDown={() => pressStart(a)}
+            onPointerUp={pressEnd}
+            onPointerLeave={pressEnd}
+            onPointerCancel={pressEnd}
+            onContextMenu={(e) => e.preventDefault()}
+            onClick={() => {
+              // A hosszú nyomás már megnyitotta a szerkesztőt — ne rögzítsünk.
+              if (longPressed.current) {
+                longPressed.current = false;
+                return;
+              }
+              void record(a.id, a.label);
+            }}
           >
             <span className="bigbtn__icon">
               <Icon name={a.icon} size={19} />
@@ -250,7 +297,7 @@ export function Capture({ onOpenDay }: { onOpenDay: (key: string) => void }) {
         ))}
         <button
           className="bigbtn bigbtn--new"
-          onClick={() => setDraft({ label: '', icon: 'star', color: PRESETS[live.length % 8] })}
+          onClick={() => setDraft({ id: null, label: '', icon: 'star', color: PRESETS[live.length % 8] })}
         >
           <span className="bigbtn__icon">
             <svg width="19" height="19" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
@@ -273,6 +320,7 @@ export function Capture({ onOpenDay }: { onOpenDay: (key: string) => void }) {
       <Sheet opened={!!draft} onBackdropClick={() => setDraft(null)} className="marci-sheet">
         {draft && (
           <Block>
+            <h3>{draft.id ? 'Tevékenység szerkesztése' : 'Új tevékenység'}</h3>
             <div className="preview" style={{ '--c': draft.color } as React.CSSProperties}>
               <span className="chipicon chipicon--lg" style={{ background: draft.color }}>
                 <Icon name={draft.icon} size={22} />
@@ -314,16 +362,51 @@ export function Capture({ onOpenDay }: { onOpenDay: (key: string) => void }) {
             </div>
 
             <div className="sheet__row">
-              <Button rounded onClick={() => void createAndStart()} disabled={!draft.label.trim()}>
-                Létrehoz és indít
+              <Button rounded onClick={() => void saveDraft()} disabled={!draft.label.trim()}>
+                {draft.id ? 'Mentés' : 'Létrehoz és indít'}
               </Button>
-              <Button rounded clear onClick={() => setDraft(null)}>
+              <Button rounded tonal onClick={() => setDraft(null)}>
                 Mégse
               </Button>
             </div>
+
+            {draft.id && (
+              <div className="sheet__row sheet__row--danger">
+                <Button
+                  rounded
+                  outline
+                  colors={{ textIos: 'text-red-500', outlineBorderIos: 'border-red-500' }}
+                  onClick={() => void tryDelete(draft.id!)}
+                >
+                  Törlés
+                </Button>
+              </div>
+            )}
           </Block>
         )}
       </Sheet>
+
+      <Actions opened={!!confirmDelete} onBackdropClick={() => setConfirmDelete(null)}>
+        <ActionsGroup>
+          <ActionsLabel>
+            {confirmDelete?.usage} esemény sávja üresre vált. Nem vonható vissza.
+          </ActionsLabel>
+          <ActionsButton
+            bold
+            colors={{ textIos: 'text-red-500' }}
+            onClick={() => {
+              if (confirmDelete) void deleteActivityHard(confirmDelete.id, true);
+              setConfirmDelete(null);
+              setDraft(null);
+            }}
+          >
+            Törlés
+          </ActionsButton>
+        </ActionsGroup>
+        <ActionsGroup>
+          <ActionsButton onClick={() => setConfirmDelete(null)}>Mégse</ActionsButton>
+        </ActionsGroup>
+      </Actions>
 
       <Toast
         opened={!!undo}

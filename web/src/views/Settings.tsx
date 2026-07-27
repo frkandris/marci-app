@@ -48,7 +48,9 @@ export function uniqueId(base: string, taken: Set<string>): string {
 
 export function Settings() {
   const { activities } = useStore();
-  const live = liveActivities(activities);
+  // A Beállításokban ÁBÉCÉ szerint, hogy bármit gyorsan meg lehessen találni.
+  // (A gyorsrögzítő gombok sorrendje ettől független: ott a használat dönt.)
+  const live = liveActivities(activities).sort((a, b) => a.label.localeCompare(b.label, 'hu'));
 
   const [editing, setEditing] = useState<Activity | null>(null);
   const [isNew, setIsNew] = useState(false);
@@ -98,7 +100,6 @@ export function Settings() {
             key={a.id}
             media={chip(a)}
             title={a.label}
-            subtitle={`${a.usageCount ?? 0} esemény`}
             link
             onClick={() => (setIsNew(false), setEditing(a))}
           />
@@ -165,7 +166,7 @@ export function Settings() {
               <Button rounded onClick={() => void save()} disabled={!editing.label.trim()}>
                 Mentés
               </Button>
-              <Button rounded clear onClick={() => setEditing(null)}>
+              <Button rounded tonal onClick={() => setEditing(null)}>
                 Mégse
               </Button>
             </div>

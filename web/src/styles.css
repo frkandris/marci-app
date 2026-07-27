@@ -275,6 +275,11 @@ button { cursor: pointer; }
   width: 5px;
   background: var(--c);
 }
+.bigbtn {
+  -webkit-touch-callout: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
 .bigbtn:active { transform: scale(0.975); }
 .bigbtn:disabled { opacity: 0.35; }
 .bigbtn__icon { display: grid; place-items: center; color: var(--c); flex: none; }
@@ -774,9 +779,12 @@ button { cursor: pointer; }
 .sheet__grid { display: flex; flex-wrap: wrap; gap: 8px; }
 
 .times { display: flex; gap: 10px; margin-bottom: 16px; }
-.times__field { flex: 1; display: flex; flex-direction: column; gap: 5px; }
+/* min-width: 0 — a `time` inputnak nagy a belső minimális szélessége, enélkül
+   a flex-elemek nem zsugorodnak, és egymásra lógnak. */
+.times__field { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
 .times__field input {
   width: 100%;
+  min-width: 0;
   padding: 11px 12px;
   border: 1px solid var(--line);
   border-radius: 11px;
@@ -785,6 +793,7 @@ button { cursor: pointer; }
   font-variant-numeric: tabular-nums;
 }
 .times__running {
+  min-width: 0;
   padding: 11px 12px;
   border: 1px dashed var(--line);
   border-radius: 11px;
