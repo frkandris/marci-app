@@ -10,6 +10,7 @@ import {
   fmtTime,
   segmentsFor,
   shiftDayKey,
+  wallClockPct,
 } from '../model';
 import { Icon } from '../icons';
 
@@ -72,10 +73,13 @@ export function Overview({ onOpenDay }: { onOpenDay: (key: string) => void }) {
                       key={s.markerId}
                       className={`row__seg${marked ? ' is-marked' : ''}${exact ? ' is-exact' : ''}`}
                       style={{
-                        left: `${((s.start - from) / (to - from)) * 100}%`,
+                        // Faliórás pozíció: az óraátállítás napján is a közös
+                        // óratengelyhez igazodik, különben pont az veszne el,
+                        // amiért ez a nézet létezik.
+                        left: `${wallClockPct(s.start, to)}%`,
                         // Minimális szélesség: enélkül egy azonnal javított,
                         // pár másodperces marker nyom nélkül eltűnne.
-                        width: `max(2px, ${((s.end - s.start) / (to - from)) * 100}%)`,
+                        width: `max(2px, ${wallClockPct(s.end, to) - wallClockPct(s.start, to)}%)`,
                         background: a?.color ?? '#A9AEB8',
                       }}
                       aria-label={`${a?.label ?? s.activityId}, ${fmtTime(s.start)}–${fmtTime(s.end)}`}

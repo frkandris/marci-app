@@ -20,6 +20,7 @@ import {
   timeInLogicalDay,
   toTimeInput,
   usageScores,
+  wallClockPct,
 } from '../src/model.ts';
 import type { Activity, Marker } from '../src/model.ts';
 
@@ -308,4 +309,21 @@ test('a vég szerkesztése a VÉG-marker napjához horgonyoz (átéjszakázó sz
   const helyesen = retimeMarker(veg, '08:00');
   assert.equal(helyesen, at(2026, 7, 28, 8, 0));
   assert.ok(helyesen > kezdet, 'a vég-marker napjából számolva helyes');
+});
+
+test('wallClockPct a FALIÓRÁHOZ igazít, óraátállításkor is', () => {
+  // Normál nap: 04:00 -> 0%, 16:00 -> 50%, a nap vége -> 100%.
+  const [f1, t1] = dayBounds('2026-07-27');
+  assert.equal(wallClockPct(f1, t1), 0);
+  assert.equal(wallClockPct(at(2026, 7, 27, 16, 0), t1), 50);
+  assert.equal(wallClockPct(t1, t1), 100);
+
+  // Tavaszi óraátállítás napja: a logikai nap 23 órás, a 16:00 MÉGIS
+  // ugyanoda esik, mint bármely más napon.
+  const [f2, t2] = dayBounds('2026-03-28');
+  const hossz = (t2 - f2) / 3600_000;
+  assert.equal(wallClockPct(at(2026, 3, 28, 16, 0), t2), 50, `naphossz: ${hossz} óra`);
+
+  const [f3, t3] = dayBounds('2026-03-29');
+  assert.equal(wallClockPct(at(2026, 3, 29, 16, 0), t3), 50);
 });

@@ -261,6 +261,23 @@ export function rankedActivities(
   });
 }
 
+/**
+ * Egy időpont helye a napi sávon, 0–100 között — FALIÓRA szerint.
+ *
+ * Nem az eltelt idő arányából számolunk, mert az óraátállítás napján a logikai
+ * nap 23 vagy 25 órás: a sor ilyenkor elcsúszna a közös óratengelyhez képest,
+ * és pont az veszne el, amiért a többnapos nézet létezik — a napok
+ * összehasonlíthatósága. A faliórás pozíció minden sorban ugyanoda teszi a
+ * 08:00-t, akkor is, ha aznap egy óra kimaradt vagy megismétlődött.
+ */
+export function wallClockPct(t: number, dayEnd: number, hour = DAY_START_HOUR): number {
+  if (t >= dayEnd) return 100;
+  const d = new Date(t);
+  let h = d.getHours() + d.getMinutes() / 60 + d.getSeconds() / 3600 - hour;
+  if (h < 0) h += 24;
+  return (h / 24) * 100;
+}
+
 export const SNAP_MS = 5 * 60_000;
 export const snap = (t: number, grid = SNAP_MS) => Math.round(t / grid) * grid;
 
