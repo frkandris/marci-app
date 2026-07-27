@@ -12,6 +12,7 @@ import {
 } from 'konsta/react';
 import { useStore } from '../App';
 import {
+  createActivity,
   deleteActivityHard,
   saveActivity,
 } from '../store';
@@ -25,26 +26,6 @@ const PRESETS = [
 
 // A tevékenységekhez választható ikonok — a négy fülikon nem tartozik ide.
 const PICKABLE = ICON_NAMES.filter((n) => !['record', 'list', 'grid', 'sliders'].includes(n));
-
-const slug = (s: string) =>
-  s
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '');
-
-/**
- * Ütközésmentes azonosító. Enélkül egy második „Séta" (vagy egy ékezet nélküli
- * „Seta") ugyanarra a slugra képződne, és az upsert NÉMÁN felülírná a meglévő
- * tevékenységet — az összes régi markere új nevet és színt kapna.
- */
-export function uniqueId(base: string, taken: Set<string>): string {
-  if (!taken.has(base)) return base;
-  let i = 2;
-  while (taken.has(`${base}-${i}`)) i++;
-  return `${base}-${i}`;
-}
 
 type Section = 'activities';
 
@@ -77,10 +58,10 @@ export function Settings() {
 
   async function save() {
     if (!editing) return;
-    const id = isNew
-      ? uniqueId(slug(editing.label) || 't', new Set(activities.map((a) => a.id)))
-      : editing.id;
-    const row = await saveActivity({ ...editing, id, label: editing.label.trim() || id });
+    const label = editing.label.trim();
+    const row = isNew
+      ? await createActivity({ label, color: editing.color, icon: editing.icon, sort: editing.sort })
+      : await saveActivity({ ...editing, label });
     // Hibánál nyitva marad, hogy a beírt adatok ne vesszenek el.
     if (!row) return;
     setEditing(null);

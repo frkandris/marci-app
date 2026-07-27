@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Actions, ActionsButton, ActionsGroup, ActionsLabel, Block, Button, Sheet, Toast } from 'konsta/react';
 import { ICON_NAMES, Icon } from '../icons';
 import { useStore } from '../App';
-import { addMarker, deleteActivityHard, deleteMarker, saveActivity } from '../store';
+import { addMarker, createActivity, deleteActivityHard, deleteMarker, saveActivity } from '../store';
 import {
   DAY_START_HOUR,
   activeMarkers,
@@ -177,15 +177,13 @@ export function Capture({ onOpenDay }: { onOpenDay: (key: string) => void }) {
       while (taken.has(`${id}-${i}`)) i++;
       id = `${id}-${i}`;
     }
-    const row = await saveActivity({
-      id,
+    const row = await createActivity({
       label: draft.label.trim(),
       icon: draft.icon,
       color: draft.color,
       // A `live` HASZNÁLAT szerint van rendezve, nem `sort` szerint — ezért
       // a legnagyobb kézi sort-ból számolunk, különben ütköző értéket kapna.
       sort: Math.max(0, ...allLive.map((a) => a.sort)) + 10,
-      archived: false,
     });
     // Sikertelen mentésnél NE dobjuk el a beírt adatokat — a hibasáv jelzi a
     // bajt, a felhasználó pedig újrapróbálhatja.

@@ -207,7 +207,21 @@ export const deleteMarker = (id: string) =>
     set({ markers: state.markers.filter((m) => m.id !== id), error: null });
   });
 
-/** A mentett sorral tér vissza, hogy a hívó azonnal el tudja indítani. */
+/**
+ * Új tevékenység. Az azonosítót a SZERVER osztja ki — a kliens nem tud
+ * ütközésmentes id-t választani, mert a másik telefon listája is változhat.
+ */
+export const createActivity = (a: Omit<Activity, 'id' | 'archived'>) =>
+  guard(async () => {
+    const row = await api<Activity>('/activities', {
+      method: 'POST',
+      body: JSON.stringify(a),
+    });
+    set({ activities: [...state.activities, { ...row, usageCount: 0 }], error: null });
+    return row;
+  });
+
+/** MEGLÉVŐ tevékenység módosítása. A mentett sorral tér vissza. */
 export const saveActivity = (a: Activity) =>
   guard(async () => {
     const row = await api<Activity>(`/activities/${encodeURIComponent(a.id)}`, {

@@ -133,6 +133,40 @@ export const listActivities = (db) =>
     .all()
     .map((r) => ({ ...toActivity(r), usageCount: r.usage_count }));
 
+/** Ékezetmentes, URL-barát azonosító a névből. */
+const slugify = (label) =>
+  label
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
+
+/**
+ * Új tevékenység. Az azonosítót a SZERVER osztja ki, ütközésmentesen.
+ *
+ * Ha a kliens adná (a saját, esetleg elavult listája alapján), két telefon
+ * ugyanazt a slugot választhatná, és a második `ON CONFLICT` ága NÉMÁN
+ * felülírná az elsőt — átnevezve és átszínezve annak minden meglévő markerét.
+ */
+export function createActivity(db, a) {
+  const base = slugify(a.label) || 't';
+  const exists = db.prepare('SELECT 1 FROM activities WHERE id = ?');
+  let id = base;
+  for (let i = 2; exists.get(id); i++) id = `${base}-${i}`;
+
+  db.prepare(
+    'INSERT INTO activities(id,label,color,icon,sort,archived) VALUES(?,?,?,?,?,0)',
+  ).run(id, a.label, a.color, a.icon ?? null, a.sort);
+  return { ...toActivity(db.prepare('SELECT * FROM activities WHERE id = ?').get(id)), usageCount: 0 };
+}
+
+/** Meglévő tevékenység módosítása. `null`, ha nincs ilyen sor. */
+export function updateActivity(db, id, a) {
+  if (!db.prepare('SELECT 1 FROM activities WHERE id = ?').get(id)) return null;
+  return upsertActivity(db, { ...a, id });
+}
+
 export function upsertActivity(db, a) {
   db.prepare(
     `INSERT INTO activities(id,label,color,icon,sort,archived) VALUES(?,?,?,?,?,?)

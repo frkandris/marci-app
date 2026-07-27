@@ -9,6 +9,7 @@ import { Hono } from 'hono';
 import {
   activityExists,
   archiveActivity,
+  createActivity,
   createMarker,
   deleteActivity,
   deleteMarker,
@@ -16,8 +17,8 @@ import {
   listMarkers,
   openDb,
   reorderActivities,
+  updateActivity,
   updateMarker,
-  upsertActivity,
 } from './db.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -66,24 +67,45 @@ api.get('/health', (c) => {
 
 api.get('/activities', (c) => c.json(listActivities(db)));
 
-api.put('/activities/:id', async (c) => {
-  const id = c.req.param('id');
+const activityFields = (b) => {
+  if (typeof b?.label !== 'string' || !b.label.trim()) return 'label';
+  if (typeof b.color !== 'string' || !/^#[0-9a-fA-F]{6}$/.test(b.color)) return 'color';
+  if (!Number.isFinite(b.sort)) return 'sort';
+  return null;
+};
+
+// A LÉTREHOZÁS külön végpont, és az azonosítót a szerver osztja: két telefon
+// különben ugyanazt a slugot választhatná, és a második felülírná az elsőt.
+api.post('/activities', async (c) => {
   const b = await json(c);
   if (!b) return c.json({ error: 'bad json' }, 400);
-  if (typeof b.label !== 'string' || !b.label.trim()) return c.json({ error: 'label' }, 400);
-  if (typeof b.color !== 'string' || !/^#[0-9a-fA-F]{6}$/.test(b.color))
-    return c.json({ error: 'color' }, 400);
-  if (!Number.isFinite(b.sort)) return c.json({ error: 'sort' }, 400);
+  const bad = activityFields(b);
+  if (bad) return c.json({ error: bad }, 400);
   return c.json(
-    upsertActivity(db, {
-      id,
+    createActivity(db, {
       label: b.label.trim(),
       color: b.color,
       icon: b.icon ?? null,
       sort: b.sort,
-      archived: !!b.archived,
     }),
+    201,
   );
+});
+
+// A MÓDOSÍTÁS csak meglévő soron működik — nem hoz létre újat.
+api.put('/activities/:id', async (c) => {
+  const b = await json(c);
+  if (!b) return c.json({ error: 'bad json' }, 400);
+  const bad = activityFields(b);
+  if (bad) return c.json({ error: bad }, 400);
+  const row = updateActivity(db, c.req.param('id'), {
+    label: b.label.trim(),
+    color: b.color,
+    icon: b.icon ?? null,
+    sort: b.sort,
+    archived: !!b.archived,
+  });
+  return row ? c.json(row) : c.json({ error: 'not found' }, 404);
 });
 
 api.post('/activities/reorder', async (c) => {

@@ -64,3 +64,32 @@ test('ismeretlen /api útvonal JSON 404-et ad, nem HTML-t', async () => {
   assert.equal(res.status, 404);
   assert.match(res.headers.get('content-type') ?? '', /application\/json/);
 });
+
+test('a letrehozas kulon vegpont, es a szerver osztja az azonositot', async () => {
+  const app = await load({ SHARED_TOKEN: '' });
+  const mk = (label) =>
+    app.fetch(new Request('http://x/api/activities', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ label, color: '#112233', icon: 'star', sort: 100 }),
+    })).then((r) => r.json());
+
+  // Ket telefon UGYANAZT a nevet kuldi be — nem irhatjak felul egymast.
+  const a = await mk('Séta');          // a 'seta' mar letezik alapbol
+  const b = await mk('Séta');
+  assert.notEqual(a.id, b.id, 'kulon azonositot kapnak');
+  assert.notEqual(a.id, 'program', 'a meglevo sort nem irjak felul');
+
+  const acts = await app.fetch(new Request('http://x/api/activities')).then((r) => r.json());
+  assert.equal(acts.filter((x) => x.label === 'Séta').length, 3, 'mindharom megmaradt');
+});
+
+test('a PUT csak MEGLEVO tevekenyseget modosit, nem hoz letre ujat', async () => {
+  const app = await load({ SHARED_TOKEN: '' });
+  const res = await app.fetch(new Request('http://x/api/activities/nincs-ilyen', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ label: 'X', color: '#112233', sort: 1 }),
+  }));
+  assert.equal(res.status, 404);
+});
