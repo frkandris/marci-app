@@ -8,6 +8,7 @@ import {
   dragBounds,
   markersIn,
   runningMarker,
+  sameClockPreviousDay,
   segmentsFor,
   shiftDayKey,
   snap,
@@ -144,4 +145,44 @@ test('runningMarker figyelmen kívül hagyja a jövőbeli markert', () => {
     mk('jovo', at(2026, 7, 28, 5), 'alvas'),
   ];
   assert.equal(runningMarker(markers, now)?.id, 'most');
+});
+
+test('INVARIÁNS: dayBounds(dayKey(t)) mindig tartalmazza t-t — óraátállításkor is', () => {
+  // Ez a legerősebb állítás a naplogikáról. Ha elromlik, egy esemény olyan naphoz
+  // sorolódik, aminek a tartományába bele sem esik. Az `at - 4 óra` abszolút
+  // kivonás pontosan ezt okozta a tavaszi váltásnál.
+  const probes: number[] = [];
+  for (const [mo, d] of [[3, 28], [3, 29], [3, 30], [10, 24], [10, 25], [10, 26], [7, 27]]) {
+    for (let h = 0; h < 24; h++) for (const mi of [0, 30, 59]) {
+      probes.push(at(2026, mo, d, h, mi));
+    }
+  }
+  for (const t of probes) {
+    const [from, to] = dayBounds(dayKey(t));
+    assert.ok(
+      t >= from && t < to,
+      `${new Date(t).toString()} a(z) ${dayKey(t)} naphoz sorolódott, de a tartomány ` +
+        `[${new Date(from).toString()}, ${new Date(to).toString()}) nem tartalmazza`,
+    );
+  }
+});
+
+test('sameClockPreviousDay megőrzi a helyi óra:percet az óraátállítás napján is', () => {
+  const t = at(2026, 3, 29, 23, 0);
+  const prev = new Date(sameClockPreviousDay(t));
+  assert.equal(prev.getHours(), 23, 'a helyi óra nem csúszhat el');
+  assert.equal(prev.getMinutes(), 0);
+  assert.equal(prev.getDate(), 28);
+});
+
+test('a jövőbeli marker nem nyújtja a jelenbe az előtte lévő szegmenst', () => {
+  const now = at(2026, 7, 27, 15);
+  const markers = [
+    mk('most', at(2026, 7, 27, 14), 'jatek'),
+    mk('elgepelt-jovo', at(2026, 7, 27, 20), 'alvas'),
+  ];
+  const [from, to] = dayBounds('2026-07-27');
+  const segs = segmentsFor(markers, from, to, now);
+  assert.equal(segs.length, 1, 'a jövőbeli marker maga nem ad szegmenst');
+  assert.equal(segs[0].end, now, 'az előtte lévő szegmens a JELENIG tart, nem 20:00-ig');
 });

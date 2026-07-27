@@ -1,12 +1,15 @@
 import assert from 'node:assert/strict';
+import { DatabaseSync } from 'node:sqlite';
 import { test } from 'node:test';
 import {
   archiveActivity,
   createMarker,
+  deleteActivity,
   deleteMarker,
   listActivities,
   listMarkers,
   openDb,
+  reorderActivities,
   updateMarker,
   upsertActivity,
 } from '../src/db.js';
@@ -19,7 +22,7 @@ test('a migráció felveszi az alap tevékenységeket, sorrendben', () => {
   const acts = listActivities(db);
   assert.equal(acts.length, 7);
   assert.equal(acts[0].id, 'alvas');
-  assert.equal(acts.at(-1).id, 'bolcsi');
+  assert.equal(acts.at(-1).id, 'ovi');
   assert.ok(acts.every((a) => a.archived === false));
 });
 
@@ -79,10 +82,10 @@ test('a tevékenység archiválható, de nem tűnik el', () => {
   // Fizikai törlésnél a rá hivatkozó régi markerek árván maradnának,
   // és a múltbeli napok olvashatatlanná válnának.
   const db = fresh();
-  archiveActivity(db, 'bolcsi');
+  archiveActivity(db, 'ovi');
   const acts = listActivities(db);
   assert.equal(acts.length, 7, 'a sor megmarad');
-  assert.equal(acts.find((a) => a.id === 'bolcsi').archived, true);
+  assert.equal(acts.find((a) => a.id === 'ovi').archived, true);
 });
 
 test('az upsert létrehoz és frissít is', () => {
@@ -99,4 +102,75 @@ test('az upsert létrehoz és frissít is', () => {
   });
   assert.equal(updated.label, 'Tízórai');
   assert.equal(listActivities(db).length, 8, 'nem keletkezik duplikátum');
+});
+
+test('a carry-in azonos időbélyegnél is determinisztikus (id szerint tör holtversenyt)', () => {
+  // Két backdate-elt marker ugyanarra a percre. A kliens at, majd id szerint
+  // rendez — a szervernek ugyanazt kell utolsónak tekintenie, különben a
+  // következő nap első szegmense más tevékenységet mutatna.
+  const db = fresh();
+  const t = at(2026, 7, 26, 19, 30);
+  createMarker(db, { id: 'aaa', at: t, activityId: 'jatek' });
+  createMarker(db, { id: 'zzz', at: t, activityId: 'alvas' });
+  const rows = listMarkers(db, at(2026, 7, 27, 4), at(2026, 7, 28, 4));
+  assert.equal(rows[0].id, 'zzz', 'a nagyobb id nyer, ahogy a kliens rendezésénél is');
+});
+
+test('a vegleges torles nem engedi arvan hagyni a markereket', () => {
+  const db = fresh();
+  createMarker(db, { id: 'm1', at: 1000, activityId: 'furdes' });
+
+  const blocked = deleteActivity(db, 'furdes');
+  assert.equal(blocked.deleted, false);
+  assert.equal(blocked.usage, 1);
+  assert.ok(listActivities(db).some((a) => a.id === 'furdes'), 'a tipus megmaradt');
+
+  const forced = deleteActivity(db, 'furdes', { cascade: true });
+  assert.equal(forced.deleted, true);
+  assert.equal(listActivities(db).some((a) => a.id === 'furdes'), false);
+  assert.equal(listMarkers(db, 0, 9999999).length, 0, 'a hivatkozo markerek is torlodtek');
+});
+
+test('a hasznalatban nem levo tipus cascade nelkul is torolheto', () => {
+  const db = fresh();
+  assert.equal(deleteActivity(db, 'ovi').deleted, true);
+  assert.equal(listActivities(db).length, 6);
+});
+
+test('a listAllactivities usageCount-ot is ad', () => {
+  const db = fresh();
+  createMarker(db, { id: 'a', at: 1, activityId: 'alvas' });
+  createMarker(db, { id: 'b', at: 2, activityId: 'alvas' });
+  const acts = listActivities(db);
+  assert.equal(acts.find((a) => a.id === 'alvas').usageCount, 2);
+  assert.equal(acts.find((a) => a.id === 'jatek').usageCount, 0);
+});
+
+test('az atrendezes a kapott sorrendet allitja be', () => {
+  const db = fresh();
+  const ids = listActivities(db).map((a) => a.id);
+  const reversed = [...ids].reverse();
+  const out = reorderActivities(db, reversed);
+  assert.deepEqual(out.map((a) => a.id), reversed);
+  assert.deepEqual(listActivities(db).map((a) => a.id), reversed, 'a sorrend perzisztens');
+});
+
+test('a v2 migracio atnevezi a bolcsit ovira, a markereivel egyutt', () => {
+  // Régi sémájú adatbázis szimulálása, majd újranyitás -> migráció fut.
+  const path = `/tmp/marci-mig-${Math.random().toString(36).slice(2)}.db`;
+  const old = new DatabaseSync(path);
+  old.exec(`
+    CREATE TABLE markers (id TEXT PRIMARY KEY, at INTEGER NOT NULL, activity_id TEXT NOT NULL, note TEXT);
+    CREATE TABLE activities (id TEXT PRIMARY KEY, label TEXT NOT NULL, color TEXT NOT NULL, icon TEXT, sort INTEGER NOT NULL, archived INTEGER NOT NULL DEFAULT 0);
+    INSERT INTO activities VALUES ('bolcsi','Bölcsi','#C0559B','🎒',70,0);
+    INSERT INTO markers VALUES ('m1', 1000, 'bolcsi', NULL);
+    PRAGMA user_version = 1;
+  `);
+  old.close();
+
+  const db = openDb(path);
+  const acts = listActivities(db);
+  assert.equal(acts.some((a) => a.id === 'bolcsi'), false, 'a regi id eltunt');
+  assert.equal(acts.find((a) => a.id === 'ovi').label, 'Ovi');
+  assert.equal(listMarkers(db, 0, 9999).at(-1).activityId, 'ovi', 'a marker is atallt');
 });

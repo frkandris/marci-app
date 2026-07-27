@@ -25,6 +25,8 @@ export interface Activity {
   sort: number;
   /** Archivált típus eltűnik a gombok közül, de a régi szegmensek megmaradnak. */
   archived: boolean;
+  /** Hány marker hivatkozik rá. A törlés/archiválás eldöntéséhez. */
+  usageCount?: number;
 }
 
 export interface Segment {
@@ -39,10 +41,20 @@ export interface Segment {
 
 const pad = (n: number) => String(n).padStart(2, '0');
 
-/** Melyik logikai naphoz tartozik egy időpont. Helyi idő szerint. */
+const fmtKey = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+
+/**
+ * Melyik logikai naphoz tartozik egy időpont. Helyi idő szerint.
+ *
+ * NAPTÁRI aritmetika, nem `at - 4 óra`. Az abszolút kivonás a nyári időszámítás
+ * váltásakor elromlik: 2026-03-29 04:30-ból 2026-03-28 23:30 lenne, vagyis az új
+ * logikai nap első órája az ELŐZŐ naphoz kerülne — miközben a `dayBounds` szerint
+ * nem is esik bele. A kettő így ellentmondana egymásnak.
+ */
 export function dayKey(at: number, hour = DAY_START_HOUR): string {
-  const d = new Date(at - hour * 3600_000);
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  const d = new Date(at);
+  if (d.getHours() < hour) d.setDate(d.getDate() - 1);
+  return fmtKey(d);
 }
 
 /**
@@ -57,8 +69,18 @@ export function dayStartMs(key: string, hour = DAY_START_HOUR): number {
 
 export function shiftDayKey(key: string, days: number): string {
   const [y, m, d] = key.split('-').map(Number);
-  const dt = new Date(y, m - 1, d + days);
-  return `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}`;
+  return fmtKey(new Date(y, m - 1, d + days));
+}
+
+/**
+ * Ugyanaz a helyi óra:perc az előző naptári napon.
+ * Naptári léptetés, nem −24 óra: a tavaszi óraátállítás napján a −86 400 000 ms
+ * egy órával elcsúsztatná a kért időpontot.
+ */
+export function sameClockPreviousDay(t: number): number {
+  const d = new Date(t);
+  d.setDate(d.getDate() - 1);
+  return d.getTime();
 }
 
 export function dayBounds(key: string, hour = DAY_START_HOUR): [number, number] {
@@ -91,7 +113,10 @@ export function segmentsFor(all: Marker[], from: number, to: number, now: number
     if (m.at >= to) break;
     const rawEnd = ms[j + 1] ? ms[j + 1].at : now;
     const start = Math.max(m.at, from);
-    const end = Math.min(rawEnd, to);
+    // A `now` felső korlát MINDEN szegmensre vonatkozik, nem csak az utolsóra:
+    // egy jövőbeli marker különben a mögötte lévő szegmenst a jövőbe nyújtaná,
+    // vagyis még el nem telt időt mutatnánk megtörténtként.
+    const end = Math.min(rawEnd, to, now);
     if (end <= start) continue;
     if (m.activityId === NONE) continue;
     out.push({

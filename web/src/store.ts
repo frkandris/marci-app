@@ -17,6 +17,8 @@ export interface State {
   daysLoaded: number;
   loading: boolean;
   error: string | null;
+  /** A service worker új verziót töltött le, és vár a beélesítésre. */
+  updateReady: boolean;
 }
 
 let state: State = {
@@ -26,6 +28,7 @@ let state: State = {
   daysLoaded: INITIAL_DAYS,
   loading: false,
   error: null,
+  updateReady: false,
 };
 
 const listeners = new Set<() => void>();
@@ -101,15 +104,16 @@ async function guard<T>(fn: () => Promise<T>): Promise<T | null> {
   }
 }
 
+/** A létrehozott sorral tér vissza, hogy a felület visszavonást tudjon kínálni. */
 export const addMarker = (activityId: string, at = Date.now(), note: string | null = null) =>
-  guard(async () =>
-    upsertLocal(
-      await api<Marker>('/markers', {
-        method: 'POST',
-        body: JSON.stringify({ at, activityId, note }),
-      }),
-    ),
-  );
+  guard(async () => {
+    const row = await api<Marker>('/markers', {
+      method: 'POST',
+      body: JSON.stringify({ at, activityId, note }),
+    });
+    upsertLocal(row);
+    return row;
+  });
 
 export const updateMarker = (id: string, patch: Partial<Marker>) =>
   guard(async () =>
@@ -149,6 +153,52 @@ export const archiveActivity = (id: string) =>
       error: null,
     });
   });
+
+export const unarchiveActivity = (a: Activity) => saveActivity({ ...a, archived: false });
+
+/**
+ * Végleges törlés. `cascade` nélkül a szerver 409-cel elutasítja, ha markerek
+ * hivatkoznak rá — így nem lehet véletlenül árva adatot csinálni.
+ * Visszatérés: `null` ha sikerült, különben a használatok száma.
+ */
+export async function deleteActivityHard(id: string, cascade = false): Promise<number | null> {
+  const q = `?hard=1${cascade ? '&cascade=1' : ''}`;
+  const res = await fetch(`/api/activities/${encodeURIComponent(id)}${q}`, { method: 'DELETE' });
+  if (res.status === 409) return (await res.json()).usage ?? 0;
+  if (!res.ok) {
+    set({ error: `Nem sikerült törölni (${res.status})` });
+    return 0;
+  }
+  set({
+    activities: state.activities.filter((a) => a.id !== id),
+    // A hivatkozó markerek is eltűntek a szerveren, tehát lokálisan is.
+    markers: cascade ? state.markers.filter((m) => m.activityId !== id) : state.markers,
+    error: null,
+  });
+  return null;
+}
+
+export const reorderActivities = (ids: string[]) =>
+  guard(async () => {
+    const rows = await api<Activity[]>('/activities/reorder', {
+      method: 'POST',
+      body: JSON.stringify({ ids }),
+    });
+    set({ activities: rows, error: null });
+  });
+
+// --- verziófrissítés ------------------------------------------------------
+// A service worker jelez, az app pedig SAJÁT sávban kínálja fel — soha nem
+// natív confirm()-mal, mert az blokkolja a renderert.
+
+let applyUpdateFn: (() => void) | null = null;
+
+export function setUpdateAvailable(apply: () => void) {
+  applyUpdateFn = apply;
+  set({ updateReady: true });
+}
+
+export const applyUpdate = () => applyUpdateFn?.();
 
 // --- életciklus -----------------------------------------------------------
 

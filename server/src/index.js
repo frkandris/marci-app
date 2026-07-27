@@ -9,10 +9,12 @@ import { Hono } from 'hono';
 import {
   archiveActivity,
   createMarker,
+  deleteActivity,
   deleteMarker,
   listActivities,
   listMarkers,
   openDb,
+  reorderActivities,
   updateMarker,
   upsertActivity,
 } from './db.js';
@@ -41,7 +43,11 @@ app.get('/robots.txt', (c) => c.text('User-agent: *\nDisallow: /\n'));
 const api = new Hono();
 
 api.use('*', async (c, next) => {
-  if (SHARED_TOKEN && c.req.header('X-Marci-Token') !== SHARED_TOKEN) {
+  // A healthcheck MINDIG szabad: a Docker HEALTHCHECK nem küld fejlécet, tehát
+  // bekapcsolt SHARED_TOKEN mellett minden ellenőrzés elbukna, és a deploy
+  // meghiúsulna egy tökéletesen működő szerver mellett is.
+  const open = c.req.path === '/health';
+  if (!open && SHARED_TOKEN && c.req.header('X-Marci-Token') !== SHARED_TOKEN) {
     return c.json({ error: 'unauthorized' }, 401);
   }
   await next();
@@ -76,9 +82,24 @@ api.put('/activities/:id', async (c) => {
   );
 });
 
+api.post('/activities/reorder', async (c) => {
+  const b = await json(c);
+  if (!Array.isArray(b?.ids) || b.ids.some((x) => typeof x !== 'string')) {
+    return c.json({ error: 'ids' }, 400);
+  }
+  return c.json(reorderActivities(db, b.ids));
+});
+
 api.delete('/activities/:id', (c) => {
-  archiveActivity(db, c.req.param('id'));
-  return c.body(null, 204);
+  const id = c.req.param('id');
+  const hard = c.req.query('hard') === '1';
+  if (!hard) {
+    archiveActivity(db, id);
+    return c.body(null, 204);
+  }
+  const res = deleteActivity(db, id, { cascade: c.req.query('cascade') === '1' });
+  // 409: használatban van, és nem kértek cascade-et. A válasz megmondja, hányszor.
+  return res.deleted ? c.body(null, 204) : c.json({ error: 'in_use', usage: res.usage }, 409);
 });
 
 api.get('/markers', (c) => {

@@ -4,7 +4,7 @@ import { DatabaseSync } from 'node:sqlite';
 // A szerver az EGYETLEN igazságforrás: nincs kliensoldali tár, nincs
 // ütközésfeloldás. Lásd wiki/decisions/2026-07-27-online-only.md.
 
-const SCHEMA_VERSION = 1;
+const SCHEMA_VERSION = 2;
 
 /** A kezdő tevékenységpaletta. Lásd wiki/features/tevekenysegtipusok.md. */
 export const DEFAULT_ACTIVITIES = [
@@ -14,7 +14,7 @@ export const DEFAULT_ACTIVITIES = [
   { id: 'furdes', label: 'Fürdés', color: '#2A9CBE', icon: '🛁', sort: 40 },
   { id: 'jatek', label: 'Játék', color: '#3FA36E', icon: '🧸', sort: 50 },
   { id: 'program', label: 'Séta', color: '#8AA82E', icon: '🚶', sort: 60 },
-  { id: 'bolcsi', label: 'Bölcsi', color: '#C0559B', icon: '🎒', sort: 70 },
+  { id: 'ovi', label: 'Ovi', color: '#C0559B', icon: '🎒', sort: 70 },
 ];
 
 export function openDb(path) {
@@ -54,6 +54,24 @@ function migrate(db) {
     for (const a of DEFAULT_ACTIVITIES) ins.run(a.id, a.label, a.color, a.icon, a.sort);
   }
 
+  if (current < 2) {
+    // A 'bolcsi' -> 'ovi' átnevezés a markereket is átvezeti, különben árván
+    // maradnának. Egy tranzakcióban, és csak ha van mit átnevezni.
+    const hasOld = db.prepare("SELECT 1 FROM activities WHERE id = 'bolcsi'").get();
+    const hasNew = db.prepare("SELECT 1 FROM activities WHERE id = 'ovi'").get();
+    if (hasOld && !hasNew) {
+      db.exec('BEGIN IMMEDIATE');
+      try {
+        db.exec("UPDATE markers SET activity_id = 'ovi' WHERE activity_id = 'bolcsi'");
+        db.exec("UPDATE activities SET id = 'ovi', label = 'Ovi' WHERE id = 'bolcsi'");
+        db.exec('COMMIT');
+      } catch (err) {
+        db.exec('ROLLBACK');
+        throw err;
+      }
+    }
+  }
+
   db.exec(`PRAGMA user_version = ${SCHEMA_VERSION}`);
 }
 
@@ -69,8 +87,15 @@ const toActivity = (r) => ({
 
 // --- Tevékenységek --------------------------------------------------------
 
+/** A `usageCount` a törlés/archiválás eldöntéséhez kell a felületen. */
 export const listActivities = (db) =>
-  db.prepare('SELECT * FROM activities ORDER BY sort, id').all().map(toActivity);
+  db
+    .prepare(
+      `SELECT a.*, (SELECT COUNT(*) FROM markers m WHERE m.activity_id = a.id) AS usage_count
+       FROM activities a ORDER BY a.sort, a.id`,
+    )
+    .all()
+    .map((r) => ({ ...toActivity(r), usageCount: r.usage_count }));
 
 export function upsertActivity(db, a) {
   db.prepare(
@@ -90,6 +115,44 @@ export function archiveActivity(db, id) {
   db.prepare('UPDATE activities SET archived = 1 WHERE id = ?').run(id);
 }
 
+export const activityUsage = (db, id) =>
+  Number(db.prepare('SELECT COUNT(*) AS n FROM markers WHERE activity_id = ?').get(id).n);
+
+/**
+ * Végleges törlés. `cascade` nélkül csak akkor engedjük, ha egyetlen marker sem
+ * hivatkozik rá — különben a régi napok árva azonosítót mutatnának.
+ * `cascade`-del a hivatkozó markerek is törlődnek, egy tranzakcióban.
+ */
+export function deleteActivity(db, id, { cascade = false } = {}) {
+  const used = activityUsage(db, id);
+  if (used > 0 && !cascade) return { deleted: false, usage: used };
+
+  db.exec('BEGIN IMMEDIATE');
+  try {
+    if (cascade) db.prepare('DELETE FROM markers WHERE activity_id = ?').run(id);
+    db.prepare('DELETE FROM activities WHERE id = ?').run(id);
+    db.exec('COMMIT');
+  } catch (err) {
+    db.exec('ROLLBACK');
+    throw err;
+  }
+  return { deleted: true, usage: used };
+}
+
+/** Átrendezés: a kapott sorrend szerint 10-esével újraosztja a `sort` értékeket. */
+export function reorderActivities(db, ids) {
+  const upd = db.prepare('UPDATE activities SET sort = ? WHERE id = ?');
+  db.exec('BEGIN IMMEDIATE');
+  try {
+    ids.forEach((id, i) => upd.run((i + 1) * 10, id));
+    db.exec('COMMIT');
+  } catch (err) {
+    db.exec('ROLLBACK');
+    throw err;
+  }
+  return listActivities(db);
+}
+
 // --- Markerek -------------------------------------------------------------
 
 /**
@@ -103,8 +166,11 @@ export function listMarkers(db, from, to) {
   const inRange = db
     .prepare('SELECT * FROM markers WHERE at >= ? AND at < ? ORDER BY at')
     .all(from, to);
+  // A holtversenytörés `id`-re nem szépészet: a kliens is `at`, majd `id` szerint
+  // rendez, és ha két backdate-elt marker azonos percre esik, enélkül a szerver
+  // más sort adna vissza carry-inként, mint amit a kliens utolsónak tekint.
   const carry = db
-    .prepare('SELECT * FROM markers WHERE at < ? ORDER BY at DESC LIMIT 1')
+    .prepare('SELECT * FROM markers WHERE at < ? ORDER BY at DESC, id DESC LIMIT 1')
     .all(from);
   return [...carry, ...inRange].map(toMarker);
 }

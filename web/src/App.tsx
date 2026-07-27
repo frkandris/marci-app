@@ -1,5 +1,5 @@
 import { useEffect, useState, useSyncExternalStore } from 'react';
-import { getState, init, refresh, subscribe } from './store';
+import { applyUpdate, getState, init, subscribe } from './store';
 import { Capture } from './views/Capture';
 import { Day } from './views/Day';
 import { Overview } from './views/Overview';
@@ -26,19 +26,14 @@ export function App() {
 
   return (
     <div className="app">
-      <header className="topbar">
-        <h1>Marci</h1>
-        <button
-          className={`status status--${s.error ? 'error' : s.loading ? 'busy' : 'ok'}`}
-          onClick={() => void refresh()}
-          title={s.error ?? 'Frissítés'}
-          aria-label="Frissítés"
-        >
-          <span className="dot" />
-        </button>
-      </header>
-
       {s.error && <div className="banner banner--error">{s.error}</div>}
+
+      {s.updateReady && (
+        <div className="banner banner--update">
+          <span>Új verzió érhető el.</span>
+          <button onClick={applyUpdate}>Frissítés</button>
+        </div>
+      )}
 
       <main className="main">
         {tab === 'capture' && <Capture onOpenDay={openDay} />}
