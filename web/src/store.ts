@@ -3,7 +3,7 @@
  * nincs dirty flag, nincs ütközésfeloldás.
  * Lásd wiki/decisions/2026-07-27-online-only.md.
  */
-import { dayBounds, dayKey, shiftDayKey, type Activity, type Marker } from './model';
+import { NONE, dayBounds, dayKey, shiftDayKey, type Activity, type Marker } from './model';
 
 /** Hány napra visszamenőleg töltünk be egyszerre. A Napok nézet ezt bővíti. */
 const INITIAL_DAYS = 45;
@@ -232,8 +232,11 @@ export async function deleteActivityHard(id: string, cascade = false): Promise<n
   }
   set({
     activities: state.activities.filter((a) => a.id !== id),
-    // A hivatkozó markerek is eltűntek a szerveren, tehát lokálisan is.
-    markers: cascade ? state.markers.filter((m) => m.activityId !== id) : state.markers,
+    // A szerver a hivatkozó markereket `__none__`-ra váltja (nem dobja el),
+    // hogy a sávok üresek legyenek, ne az előző tevékenységé.
+    markers: cascade
+      ? state.markers.map((m) => (m.activityId === id ? { ...m, activityId: NONE } : m))
+      : state.markers,
     error: null,
   });
   return null;

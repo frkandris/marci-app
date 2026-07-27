@@ -162,13 +162,24 @@ export const activityUsage = (db, id) =>
  * hivatkozik rá — különben a régi napok árva azonosítót mutatnának.
  * `cascade`-del a hivatkozó markerek is törlődnek, egy tranzakcióban.
  */
+/**
+ * Tevékenység végleges törlése.
+ *
+ * `cascade` esetén a hivatkozó markereket NEM dobjuk el, hanem `__none__`-ra
+ * állítjuk. A törlés ugyanis a HATÁRT szüntetné meg, amitől az előző
+ * tevékenység elnyelné a sávot — vagyis olyan időt tulajdonítanánk neki, ami
+ * nem az volt. Így a sávok üresek (nem rögzítettek) lesznek, a többi nap
+ * pedig érintetlen marad.
+ */
 export function deleteActivity(db, id, { cascade = false } = {}) {
   const used = activityUsage(db, id);
   if (used > 0 && !cascade) return { deleted: false, usage: used };
 
   db.exec('BEGIN IMMEDIATE');
   try {
-    if (cascade) db.prepare('DELETE FROM markers WHERE activity_id = ?').run(id);
+    if (cascade) {
+      db.prepare("UPDATE markers SET activity_id = '__none__' WHERE activity_id = ?").run(id);
+    }
     db.prepare('DELETE FROM activities WHERE id = ?').run(id);
     db.exec('COMMIT');
   } catch (err) {

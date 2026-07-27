@@ -128,7 +128,22 @@ test('a vegleges torles nem engedi arvan hagyni a markereket', () => {
   const forced = deleteActivity(db, 'furdes', { cascade: true });
   assert.equal(forced.deleted, true);
   assert.equal(listActivities(db).some((a) => a.id === 'furdes'), false);
-  assert.equal(listMarkers(db, 0, 9999999).length, 0, 'a hivatkozo markerek is torlodtek');
+});
+
+test('a kaszkadolt torles URESRE valtja a savokat, nem dobja el a hatarokat', () => {
+  // A marker eldobasa a HATART szuntetne meg, amitol az ELOZO tevekenyseg
+  // elnyelne a savot — olyan idot tulajdonitva neki, ami nem az volt.
+  const db = fresh();
+  createMarker(db, { id: 'a', at: 1000, activityId: 'jatek' });
+  createMarker(db, { id: 'b', at: 2000, activityId: 'furdes' });
+  createMarker(db, { id: 'c', at: 3000, activityId: 'jatek' });
+
+  deleteActivity(db, 'furdes', { cascade: true });
+
+  const ms = listMarkers(db, 0, 9999999);
+  assert.equal(ms.length, 3, 'a hatarok megmaradnak');
+  assert.equal(ms.find((m) => m.id === 'b').activityId, '__none__', 'a sav URES lett');
+  assert.equal(ms.find((m) => m.id === 'a').activityId, 'jatek', 'a szomszedok valtozatlanok');
 });
 
 test('a hasznalatban nem levo tipus cascade nelkul is torolheto', () => {

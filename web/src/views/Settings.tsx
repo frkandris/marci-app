@@ -189,7 +189,7 @@ export function Settings() {
       <Actions opened={!!confirmDelete} onBackdropClick={() => setConfirmDelete(null)}>
         <ActionsGroup>
           <ActionsLabel>
-            {confirmDelete?.usage} esemény is törlődik vele. Nem vonható vissza.
+            {confirmDelete?.usage} esemény sávja üresre vált. Nem vonható vissza.
           </ActionsLabel>
           <ActionsButton
             bold
@@ -200,7 +200,7 @@ export function Settings() {
               setEditing(null);
             }}
           >
-            Törlés {confirmDelete?.usage} eseménnyel
+            Törlés
           </ActionsButton>
         </ActionsGroup>
         <ActionsGroup>

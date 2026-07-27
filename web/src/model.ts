@@ -199,6 +199,18 @@ export function timeInLogicalDay(dayFrom: number, hhmm: string, hour = DAY_START
   return d.getTime();
 }
 
+/**
+ * Új óra:perc a marker SAJÁT logikai napján belül.
+ *
+ * Nem a megjelenített napot vesszük alapul: egy carry-in marker (pl. tegnap
+ * 22:00-s alvás, ami átnyúlik a mai napra) az ELŐZŐ logikai naphoz tartozik.
+ * A megjelenített naphoz horgonyozva 21:00-ból ma 21:00 lenne, amit a
+ * szomszéd-korlát visszavágna — elrontva a kezdést.
+ */
+export function retimeMarker(at: number, hhmm: string, hour = DAY_START_HOUR): number {
+  return timeInLogicalDay(dayStartMs(dayKey(at, hour), hour), hhmm, hour);
+}
+
 /** Az `<input type="time">` által várt alak. */
 export function toTimeInput(at: number): string {
   const d = new Date(at);

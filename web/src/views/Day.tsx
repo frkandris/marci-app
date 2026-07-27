@@ -22,7 +22,7 @@ import {
   segmentsFor,
   shiftDayKey,
   snap,
-  timeInLogicalDay,
+  retimeMarker,
   toTimeInput,
 } from '../model';
 
@@ -158,7 +158,11 @@ export function Day({
   function onHandleMove(e: React.PointerEvent) {
     if (!drag) return;
     const dt = ((e.clientY - drag.startY) / pxPerHour) * 3600_000;
-    const next = Math.min(Math.max(snap(drag.origAt + dt), drag.min), drag.max);
+    // A felső korlát a JELEN is: az utolsó markernek nincs szomszédja, ezért
+    // enélkül a jövőbe lenne húzható — pont az az árva állapot, amit az üres
+    // sávra koppintásnál külön tiltunk.
+    const upper = Math.min(drag.max, Date.now());
+    const next = Math.min(Math.max(snap(drag.origAt + dt), drag.min), upper);
     setDrag({ ...drag, at: next });
   }
 
@@ -320,7 +324,7 @@ export function Day({
                   const [min, max] = dragBounds(markers, m.id);
                   const next = Math.min(
                     Math.max(m.at + (e.key === 'ArrowUp' ? -step : step), min),
-                    max,
+                    Math.min(max, Date.now()),
                   );
                   void updateMarker(m.id, { at: next });
                 }
@@ -413,9 +417,9 @@ export function Day({
                   value={toTimeInput(sheetMarker.at)}
                   onChange={(e) => {
                     const [min, max] = dragBounds(markers, sheetMarker.id);
-                    const t = timeInLogicalDay(from, e.target.value);
+                    const t = retimeMarker(sheetMarker.at, e.target.value);
                     void updateMarker(sheetMarker.id, {
-                      at: Math.min(Math.max(t, min), max),
+                      at: Math.min(Math.max(t, min), Math.min(max, Date.now())),
                     });
                   }}
                 />
@@ -432,9 +436,9 @@ export function Day({
                       const [min, max] = dragBounds(markers, endMarker.id);
                       // A vég a KÖVETKEZŐ marker kezdete; az is ehhez a
                       // logikai naphoz tartozik, amíg a korlátok engedik.
-                      const t = timeInLogicalDay(from, e.target.value);
+                      const t = retimeMarker(sheetMarker.at, e.target.value);
                       void updateMarker(endMarker.id, {
-                        at: Math.min(Math.max(t, min), max),
+                        at: Math.min(Math.max(t, min), Math.min(max, Date.now())),
                       });
                     }}
                   />
