@@ -326,9 +326,23 @@ button { cursor: pointer; }
   padding: 0 16px 40px;
   touch-action: pan-y;
 }
-.day__track { position: relative; margin-left: 32px; }
+/* A track maga kattintható: az üres részre koppintva új esemény jön létre. */
+.day__track {
+  cursor: crosshair;
+  position: relative;
+  margin-left: 32px;
+  /* A magasság és minden pozíció a --pxh skálából jön, hogy a csippentés
+     egyetlen CSS-változó írásával működjön, React-render nélkül. */
+  height: calc(var(--hours) * var(--pxh) * 1px);
+}
 
-.hourline { position: absolute; left: -32px; right: 0; border-top: 1px solid var(--line); }
+.hourline {
+  position: absolute;
+  left: -32px;
+  right: 0;
+  top: calc(var(--t) * var(--pxh) * 1px);
+  border-top: 1px solid var(--line);
+}
 .hourline span {
   position: absolute;
   top: -8px;
@@ -343,6 +357,8 @@ button { cursor: pointer; }
   position: absolute;
   left: 9px;
   right: 0;
+  top: calc(var(--t) * var(--pxh) * 1px);
+  height: max(3px, calc(var(--d) * var(--pxh) * 1px));
   border: 0;
   border-radius: 9px;
   padding: 5px 10px;
@@ -361,6 +377,7 @@ button { cursor: pointer; }
   position: absolute;
   left: -32px;
   right: 0;
+  top: calc(var(--t) * var(--pxh) * 1px);
   height: 0;
   touch-action: none;
   user-select: none;
@@ -391,7 +408,14 @@ button { cursor: pointer; }
 .handle.is-dragging::after { opacity: 1; height: 2.5px; background: var(--accent); }
 .handle.is-dragging .handle__time { color: var(--accent); font-size: 13px; top: -10px; }
 
-.nowline { position: absolute; left: 0; right: 0; height: 2px; background: var(--danger); }
+.nowline {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(var(--t) * var(--pxh) * 1px);
+  height: 2px;
+  background: var(--danger);
+}
 
 .empty { padding: 30px 24px; text-align: center; color: var(--text-dim); font-size: 14px; }
 

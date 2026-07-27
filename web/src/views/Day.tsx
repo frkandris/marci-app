@@ -3,7 +3,7 @@ import { usePinch } from '@use-gesture/react';
 import { Block, Button, Sheet, Toast } from 'konsta/react';
 import { Icon } from '../icons';
 import { useStore } from '../App';
-import { deleteMarker, ensureDayLoaded, updateMarker } from '../store';
+import { addMarker, deleteMarker, ensureDayLoaded, updateMarker } from '../store';
 import {
   DAY_START_HOUR,
   NONE,
@@ -45,6 +45,7 @@ export function Day({
   const [pxPerHour, setPxPerHour] = useState(128);
   const [drag, setDrag] = useState<Drag | null>(null);
   const [sheet, setSheet] = useState<string | null>(null);
+  const [newAt, setNewAt] = useState<number | null>(null);
   const [undo, setUndo] = useState<{ id: string; at: number } | null>(null);
   const trackRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -67,8 +68,9 @@ export function Day({
   const totals = useMemo(() => dailyTotals(segments).slice(0, 4), [segments]);
   const handles = markersIn(preview, from, to);
 
-  const height = ((to - from) / 3600_000) * pxPerHour;
-  const yOf = (t: number) => ((t - from) / 3600_000) * pxPerHour;
+  const totalHours = (to - from) / 3600_000;
+  /** Órákban mért eltolás a nap kezdetétől — a CSS ebből számol pozíciót. */
+  const hOf = (t: number) => (t - from) / 3600_000;
 
   const hours = useMemo(() => {
     const out: Array<{ t: number; label: string }> = [];
@@ -109,9 +111,10 @@ export function Day({
   const pinchBase = useRef({ px: 128, midT: 0, midY: 0 });
 
   usePinch(
-    ({ first, offset: [scale], origin: [, oy], memo }) => {
+    ({ first, last, offset: [scale], origin: [, oy], memo }) => {
       const el = scrollRef.current;
-      if (!el) return memo;
+      const track = trackRef.current;
+      if (!el || !track) return memo;
       if (first) {
         const rect = el.getBoundingClientRect();
         const midY = oy - rect.top;
@@ -123,9 +126,11 @@ export function Day({
       }
       const b = pinchBase.current;
       const next = Math.min(Math.max(b.px * scale, 24), 400);
-      setPxPerHour(next);
-      // A csippentés alatti IDŐPONT maradjon a helyén a képernyőn.
+      // A gesztus ALATT csak egy CSS-változót írunk: nincs React-render, ezért
+      // nem akadozik. Az állapotot a gesztus VÉGÉN szinkronizáljuk egyszer.
+      track.style.setProperty('--pxh', String(next));
       el.scrollTop = ((b.midT - from) / 3600_000) * next - b.midY;
+      if (last) setPxPerHour(next);
       return memo;
     },
     {
@@ -169,6 +174,19 @@ export function Day({
     await updateMarker(d.id, { at: d.at });
     setUndo({ id: d.id, at: d.origAt });
     setTimeout(() => setUndo((u) => (u?.id === d.id ? null : u)), 6000);
+  }
+
+  /**
+   * Koppintás a sáv ÜRES részére: új esemény az adott időpontban — mint a
+   * naptárakban. A szegmensek és a fogantyúk saját kezelőt kapnak, ezért ide
+   * csak a tényleg üres területen érkezik esemény.
+   */
+  function onTrackClick(e: React.MouseEvent) {
+    const track = trackRef.current;
+    if (!track || e.target !== track) return;
+    const y = e.clientY - track.getBoundingClientRect().top;
+    const px = Number(getComputedStyle(track).getPropertyValue('--pxh')) || pxPerHour;
+    setNewAt(snap(from + (y / px) * 3600_000));
   }
 
   const sheetMarker = sheet ? markers.find((m) => m.id === sheet) : null;
@@ -219,9 +237,14 @@ export function Day({
       )}
 
       <div className="day__scroll" ref={scrollRef}>
-        <div className="day__track" ref={trackRef} style={{ height }}>
+        <div
+          className="day__track"
+          ref={trackRef}
+          onClick={onTrackClick}
+          style={{ '--pxh': pxPerHour, '--hours': totalHours } as React.CSSProperties}
+        >
           {hours.map((h) => (
-            <div key={h.t} className="hourline" style={{ top: yOf(h.t) }}>
+            <div key={h.t} className="hourline" style={{ '--t': hOf(h.t) } as React.CSSProperties}>
               <span>{h.label}</span>
             </div>
           ))}
@@ -233,10 +256,10 @@ export function Day({
                 key={s.markerId}
                 className="seg"
                 style={{
-                  top: yOf(s.start),
-                  height: Math.max(yOf(s.end) - yOf(s.start), 3),
+                  '--t': hOf(s.start),
+                  '--d': hOf(s.end) - hOf(s.start),
                   background: a?.color ?? '#A9AEB8',
-                }}
+                } as React.CSSProperties}
                 onClick={() => setSheet(s.markerId)}
               >
                 <span className="seg__label">
@@ -253,7 +276,7 @@ export function Day({
             <div
               key={m.id}
               className={`handle ${drag?.id === m.id ? 'is-dragging' : ''}`}
-              style={{ top: yOf(m.at) }}
+              style={{ '--t': hOf(m.at) } as React.CSSProperties}
               onPointerDown={(e) => onHandleDown(e, m.id, m.at)}
               onPointerMove={onHandleMove}
               onPointerUp={() => void onHandleUp()}
@@ -281,7 +304,9 @@ export function Day({
             </div>
           ))}
 
-          {now >= from && now < to && <div className="nowline" style={{ top: yOf(now) }} />}
+          {now >= from && now < to && (
+            <div className="nowline" style={{ '--t': hOf(now) } as React.CSSProperties} />
+          )}
         </div>
       </div>
 
@@ -303,6 +328,45 @@ export function Day({
       >
         <span>Időpont módosítva</span>
       </Toast>
+
+      <Sheet opened={newAt !== null} onBackdropClick={() => setNewAt(null)} className="marci-sheet">
+        {newAt !== null && (
+          <Block>
+            <h3>Új esemény — {fmtTime(newAt)}</h3>
+            <div className="sheet__grid">
+              {live.map((a) => (
+                <button
+                  key={a.id}
+                  className="chip"
+                  style={{ '--c': a.color } as React.CSSProperties}
+                  onClick={() => {
+                    void addMarker(a.id, newAt);
+                    setNewAt(null);
+                  }}
+                >
+                  <Icon name={a.icon} size={16} />
+                  {a.label}
+                </button>
+              ))}
+              <button
+                className="chip chip--none"
+                onClick={() => {
+                  void addMarker(NONE, newAt);
+                  setNewAt(null);
+                }}
+              >
+                <Icon name="stop" size={16} />
+                Vége
+              </button>
+            </div>
+            <div className="sheet__row">
+              <Button rounded clear onClick={() => setNewAt(null)}>
+                Mégse
+              </Button>
+            </div>
+          </Block>
+        )}
+      </Sheet>
 
       <Sheet opened={!!sheetMarker} onBackdropClick={() => setSheet(null)} className="marci-sheet">
         {sheetMarker && (
