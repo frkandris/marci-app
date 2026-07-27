@@ -1,4 +1,4 @@
-import { useEffect, useState, useSyncExternalStore } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { App as KonstaApp, Tabbar, TabbarLink } from 'konsta/react';
 import { applyUpdate, getState, init, setToken, subscribe } from './store';
 import { Capture } from './views/Capture';
@@ -23,11 +23,35 @@ export function App() {
   const s = useStore();
   const [tab, setTab] = useState<Tab>('capture');
   const [day, setDay] = useState(() => dayKey(Date.now()));
+  // Követi-e a kiválasztott nap a "mait"? A telefonon a PWA napokig nyitva
+  // marad, és 04:00-kor a "ma" mást jelent — de ha a felhasználó SZÁNDÉKOSAN
+  // nyitott meg egy múltbeli napot, arról nem rántjuk el.
+  const followsToday = useRef(true);
 
   useEffect(() => init(), []);
 
-  const openDay = (key: string) => {
+  useEffect(() => {
+    const sync = () => {
+      if (followsToday.current) setDay(dayKey(Date.now()));
+    };
+    // Előtérbe kerüléskor azonnal: háttérben az időzítők lelassulnak, és épp
+    // reggel, az első ránézéskor számít a legtöbbet. A percenkénti ellenőrzés
+    // arra kell, hogy a nyitva hagyott app is átforduljon 04:00-kor.
+    document.addEventListener('visibilitychange', sync);
+    const t = setInterval(sync, 60_000);
+    return () => {
+      document.removeEventListener('visibilitychange', sync);
+      clearInterval(t);
+    };
+  }, []);
+
+  const chooseDay = (key: string) => {
+    followsToday.current = key === dayKey(Date.now());
     setDay(key);
+  };
+
+  const openDay = (key: string) => {
+    chooseDay(key);
     setTab('day');
   };
 
@@ -71,7 +95,7 @@ export function App() {
 
         <main className="main">
           {tab === 'capture' && <Capture onOpenDay={openDay} />}
-          {tab === 'day' && <Day dayKey={day} setDayKey={setDay} />}
+          {tab === 'day' && <Day dayKey={day} setDayKey={chooseDay} />}
           {tab === 'overview' && <Overview onOpenDay={openDay} />}
           {tab === 'settings' && <Settings />}
         </main>

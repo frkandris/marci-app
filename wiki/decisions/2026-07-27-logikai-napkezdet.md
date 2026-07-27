@@ -62,3 +62,7 @@ jeleníti meg. Az alvás hossza, ami a leggyakrabban feltett kérdés, két sor 
 - **A napkezdet megváltoztatása visszamenőleg átrendezi a történelmet.** Ha valaki 04:00-ról
   06:00-ra állítja, események vándorolnak át a szomszédos napra. A beállítás mellett ezt jelezni
   kell, különben elrontott adatnak látszik.
+- **A megnyitva hagyott app „mája" elavul.** A telefonon a PWA napokig fut egyben, és 04:00-kor a
+  „ma" mást jelent, mint ahol a nézet áll. Az `App.tsx` ezért előtérbe kerüléskor és percenként
+  újraszámolja a napot — de csak akkor lépteti, ha a nézet **követi a mait**. Aki szándékosan
+  nyitott meg egy múltbeli napot, azt nem rántjuk el róla.
