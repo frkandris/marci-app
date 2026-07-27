@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { usePinch } from '@use-gesture/react';
 import { Block, Button, Sheet, Toast } from 'konsta/react';
 import { Icon } from '../icons';
 import { useStore } from '../App';
@@ -91,47 +92,38 @@ export function Day({
   }, [key]);
 
   // --- Csippentéses nagyítás ------------------------------------------------
-  // Két ujj távolságának arányában skálázunk, és a csippentés középpontja alatti
-  // IDŐPONTOT tartjuk helyben — különben a nézet kicsúszna a kezünk alól.
-  const pointers = useRef(new Map<number, number>());
-  const pinch = useRef<{ dist: number; px: number; midT: number; midY: number } | null>(null);
+  // A @use-gesture kezeli a mutatók követését, a gesztus kezdetét/végét és a
+  // trackpad ctrl+görgetést is. Mi csak a SKÁLÁT állítjuk (px/óra) — nem
+  // vizuális transzformot, mert akkor a feliratok is nyúlnának.
+  const pinchBase = useRef({ px: 128, midT: 0, midY: 0 });
 
-  function onTrackPointerDown(e: React.PointerEvent) {
-    pointers.current.set(e.pointerId, e.clientY);
-    if (pointers.current.size === 2) {
-      const [a, b] = [...pointers.current.values()];
-      const el = scrollRef.current!;
-      const rect = el.getBoundingClientRect();
-      const midY = (a + b) / 2;
-      const yInTrack = midY - rect.top + el.scrollTop;
-      pinch.current = {
-        dist: Math.abs(a - b),
-        px: pxPerHour,
-        midT: from + (yInTrack / pxPerHour) * 3600_000,
-        midY: midY - rect.top,
-      };
-    }
-  }
-
-  function onTrackPointerMove(e: React.PointerEvent) {
-    if (!pointers.current.has(e.pointerId)) return;
-    pointers.current.set(e.pointerId, e.clientY);
-    const p = pinch.current;
-    if (!p || pointers.current.size !== 2) return;
-    const [a, b] = [...pointers.current.values()];
-    const dist = Math.abs(a - b);
-    if (p.dist < 8) return;
-    const next = Math.min(Math.max((p.px * dist) / p.dist, 24), 360);
-    setPxPerHour(next);
-    // A csippentés alatti időpont maradjon ugyanott a képernyőn.
-    const el = scrollRef.current;
-    if (el) el.scrollTop = ((p.midT - from) / 3600_000) * next - p.midY;
-  }
-
-  function onTrackPointerUp(e: React.PointerEvent) {
-    pointers.current.delete(e.pointerId);
-    if (pointers.current.size < 2) pinch.current = null;
-  }
+  usePinch(
+    ({ first, offset: [scale], origin: [, oy], memo }) => {
+      const el = scrollRef.current;
+      if (!el) return memo;
+      if (first) {
+        const rect = el.getBoundingClientRect();
+        const midY = oy - rect.top;
+        pinchBase.current = {
+          px: pxPerHour,
+          midT: from + ((midY + el.scrollTop) / pxPerHour) * 3600_000,
+          midY,
+        };
+      }
+      const b = pinchBase.current;
+      const next = Math.min(Math.max(b.px * scale, 24), 400);
+      setPxPerHour(next);
+      // A csippentés alatti IDŐPONT maradjon a helyén a képernyőn.
+      el.scrollTop = ((b.midT - from) / 3600_000) * next - b.midY;
+      return memo;
+    },
+    {
+      target: scrollRef,
+      eventOptions: { passive: false },
+      scaleBounds: { min: 0.2, max: 4 },
+      from: () => [1, 0],
+    },
+  );
 
   function onHandleDown(e: React.PointerEvent, id: string, at: number) {
     e.preventDefault();
@@ -187,14 +179,7 @@ export function Day({
         </button>
       </header>
 
-      <div
-        className="day__scroll"
-        ref={scrollRef}
-        onPointerDown={onTrackPointerDown}
-        onPointerMove={onTrackPointerMove}
-        onPointerUp={onTrackPointerUp}
-        onPointerCancel={onTrackPointerUp}
-      >
+      <div className="day__scroll" ref={scrollRef}>
         <div className="day__track" ref={trackRef} style={{ height }}>
           {hours.map((h) => (
             <div key={h.t} className="hourline" style={{ top: yOf(h.t) }}>

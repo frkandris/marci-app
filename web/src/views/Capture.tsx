@@ -11,6 +11,7 @@ import {
   fmtClock,
   fmtTime,
   liveActivities,
+  previousOf,
   runningMarker,
   segmentsFor,
   shiftDayKey,
@@ -25,6 +26,8 @@ const slug = (s: string) =>
   s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
     .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 
+/** Meddig ajánljuk fel a „mégsem ez volt" visszalépést a futó tevékenységen. */
+const OOPS_WINDOW_MS = 10 * 60_000;
 const STUCK_MS = 12 * 3600_000;
 const UNDO_MS = 7000;
 
@@ -79,6 +82,12 @@ export function Capture({ onOpenDay }: { onOpenDay: (key: string) => void }) {
   const runningAct = running ? activities.find((a) => a.id === running.activityId) : null;
   const elapsed = running ? now - running.at : 0;
   const stuck = elapsed > STUCK_MS;
+
+  // Téves koppintás visszavonása: a futó marker törlésével az ELŐZŐ tevékenység
+  // folytatódik onnan, ahol abbamaradt. Csak friss rögzítésnél kínáljuk fel.
+  const prevMarker = running ? previousOf(markers, running.id) : null;
+  const prevAct = prevMarker ? activities.find((a) => a.id === prevMarker.activityId) : null;
+  const canOops = !!running && elapsed < OOPS_WINDOW_MS;
 
   const today = dayKey(now, DAY_START_HOUR);
   const from = dayStartMs(today, STRIP_FROM_H);
@@ -140,6 +149,18 @@ export function Capture({ onOpenDay }: { onOpenDay: (key: string) => void }) {
             </div>
             <div className="current__clock">{fmtClock(elapsed)}</div>
             <div className="current__since">{fmtTime(running.at)} óta</div>
+            {canOops && (
+              <button
+                className="oops"
+                onClick={() => {
+                  void deleteMarker(running.id);
+                  setUndo(null);
+                }}
+              >
+                Mégsem ez volt
+                {prevAct ? ` — vissza: ${prevAct.label}` : prevMarker ? ' — vissza: Vége' : ''}
+              </button>
+            )}
           </>
         ) : (
           <>

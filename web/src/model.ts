@@ -161,6 +161,16 @@ export function runningMarker(all: Marker[], now = Date.now()): Marker | null {
   return last;
 }
 
+/**
+ * Az adott marker ELŐTTI marker. A „mégis, folytasd az előzőt" művelethez kell:
+ * a futó marker törlésével a megelőző szegmens automatikusan folytatódik.
+ */
+export function previousOf(all: Marker[], id: string): Marker | null {
+  const ms = activeMarkers(all);
+  const i = ms.findIndex((m) => m.id === id);
+  return i > 0 ? ms[i - 1] : null;
+}
+
 export const SNAP_MS = 5 * 60_000;
 export const snap = (t: number, grid = SNAP_MS) => Math.round(t / grid) * grid;
 

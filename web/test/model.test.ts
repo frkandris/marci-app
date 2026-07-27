@@ -7,6 +7,7 @@ import {
   dayKey,
   dragBounds,
   markersIn,
+  previousOf,
   runningMarker,
   sameClockPreviousDay,
   segmentsFor,
@@ -185,4 +186,15 @@ test('a jövőbeli marker nem nyújtja a jelenbe az előtte lévő szegmenst', (
   const segs = segmentsFor(markers, from, to, now);
   assert.equal(segs.length, 1, 'a jövőbeli marker maga nem ad szegmenst');
   assert.equal(segs[0].end, now, 'az előtte lévő szegmens a JELENIG tart, nem 20:00-ig');
+});
+
+test('previousOf a megelőző markert adja — ehhez tér vissza a „mégsem ez volt"', () => {
+  const markers = [
+    mk('a', at(2026, 7, 27, 8), 'jatek'),
+    mk('b', at(2026, 7, 27, 9), 'etkezes'),
+    mk('c', at(2026, 7, 27, 10), 'furdes'),
+  ];
+  assert.equal(previousOf(markers, 'c')?.id, 'b');
+  assert.equal(previousOf(markers, 'a'), null, 'az elsőnek nincs előzője');
+  assert.equal(previousOf(markers, 'nincs'), null);
 });
