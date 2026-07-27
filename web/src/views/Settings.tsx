@@ -9,14 +9,11 @@ import {
   List,
   ListItem,
   Sheet,
-  Toggle,
 } from 'konsta/react';
 import { useStore } from '../App';
 import {
   deleteActivityHard,
-  reorderActivities,
   saveActivity,
-  setRankByUsage,
 } from '../store';
 import { liveActivities, type Activity } from '../model';
 import { ICON_NAMES, Icon } from '../icons';
@@ -49,64 +46,13 @@ export function uniqueId(base: string, taken: Set<string>): string {
   return `${base}-${i}`;
 }
 
-interface Drag {
-  from: number;
-  to: number;
-  startY: number;
-  rowH: number;
-}
-
-const move = <T,>(arr: T[], from: number, to: number): T[] => {
-  const out = [...arr];
-  out.splice(to, 0, ...out.splice(from, 1));
-  return out;
-};
-
 export function Settings() {
-  const { activities, rankByUsage } = useStore();
+  const { activities } = useStore();
   const live = liveActivities(activities);
-  // Az archiválás mint külön fogalom kikerült a felületről; a szerver
-  // továbbra is ismeri, ezért a sorrendezésnél nem hagyhatjuk ki a sorait.
-  const archived = activities.filter((a) => a.archived);
 
   const [editing, setEditing] = useState<Activity | null>(null);
   const [isNew, setIsNew] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<{ a: Activity; usage: number } | null>(null);
-  const [drag, setDrag] = useState<Drag | null>(null);
-
-  // Húzás közben a lista már a leendő sorrendben látszik — enélkül vakon húzol.
-  const order = drag ? move(live, drag.from, drag.to) : live;
-
-  function onGripDown(e: React.PointerEvent, index: number) {
-    e.preventDefault();
-    e.stopPropagation();
-    const el = e.currentTarget as HTMLElement;
-    try {
-      el.setPointerCapture(e.pointerId);
-    } catch {
-      /* nem kritikus */
-    }
-    // A sormagasságot a saját sorából olvassuk, nem a lista gyerekeiből: a
-    // Konsta List belső szerkezete nem garantált.
-    const rowH = el.closest('li')?.offsetHeight ?? 56;
-    setDrag({ from: index, to: index, startY: e.clientY, rowH });
-  }
-
-  function onGripMove(e: React.PointerEvent) {
-    if (!drag) return;
-    const shift = Math.round((e.clientY - drag.startY) / drag.rowH);
-    const to = Math.min(Math.max(drag.from + shift, 0), live.length - 1);
-    if (to !== drag.to) setDrag({ ...drag, to });
-  }
-
-  function onGripUp() {
-    if (!drag) return;
-    const d = drag;
-    setDrag(null);
-    if (d.from !== d.to) {
-      void reorderActivities([...move(live, d.from, d.to), ...archived].map((a) => a.id));
-    }
-  }
 
   function startNew() {
     setIsNew(true);
@@ -136,26 +82,6 @@ export function Settings() {
     else setEditing(null);
   }
 
-  const grip = (index: number) => (
-    <span
-      className="grip"
-      onPointerDown={(e) => onGripDown(e, index)}
-      onPointerMove={onGripMove}
-      onPointerUp={onGripUp}
-      onPointerCancel={() => setDrag(null)}
-      onClick={(e) => e.stopPropagation()}
-      role="button"
-      tabIndex={0}
-      aria-label="Áthelyezés"
-    >
-      <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
-        <circle cx="6" cy="3" r="1.4" /><circle cx="10" cy="3" r="1.4" />
-        <circle cx="6" cy="8" r="1.4" /><circle cx="10" cy="8" r="1.4" />
-        <circle cx="6" cy="13" r="1.4" /><circle cx="10" cy="13" r="1.4" />
-      </svg>
-    </span>
-  );
-
   const chip = (a: Activity, size = 17) => (
     <span className="chipicon" style={{ background: a.color }}>
       <Icon name={a.icon} size={size} />
@@ -165,20 +91,16 @@ export function Settings() {
   return (
     <div className="settings">
       <List strongIos insetIos className="marci-list">
-        {order.map((a) => {
-          const i = live.indexOf(a);
-          return (
-            <ListItem
-              key={a.id}
-              className={drag && live[drag.from].id === a.id ? 'is-dragging' : ''}
-              media={chip(a)}
-              title={a.label}
-              subtitle={`${a.usageCount ?? 0} esemény`}
-              after={grip(i)}
-              onClick={() => (setIsNew(false), setEditing(a))}
-            />
-          );
-        })}
+        {live.map((a) => (
+          <ListItem
+            key={a.id}
+            media={chip(a)}
+            title={a.label}
+            subtitle={`${a.usageCount ?? 0} esemény`}
+            link
+            onClick={() => (setIsNew(false), setEditing(a))}
+          />
+        ))}
       </List>
 
       <Block className="!mt-2">
@@ -187,18 +109,6 @@ export function Settings() {
         </Button>
       </Block>
 
-      <List strongIos insetIos className="marci-list">
-        <ListItem
-          label
-          title="Használat szerinti sorrend"
-          after={
-            <Toggle
-              checked={rankByUsage}
-              onChange={() => setRankByUsage(!rankByUsage)}
-            />
-          }
-        />
-      </List>
 
       <Sheet opened={!!editing} onBackdropClick={() => setEditing(null)} className="marci-sheet">
         {editing && (

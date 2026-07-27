@@ -497,19 +497,34 @@ button { cursor: pointer; }
   text-transform: uppercase;
 }
 
-/* A szín soha nem az egyetlen kódolás: a jelmagyarázat mindig látszik, és
-   minden szegmens koppintásra megnevezi magát. */
-.legend {
-  display: flex;
-  flex-wrap: wrap;
-  flex: none;
-  gap: 5px 14px;
-  margin-top: 14px;
-  font-size: 11px;
-  color: var(--text-dim);
+/* A kijelölt kategória keretet kap MINDEN napon — így ránézésre látszik,
+   hogyan mozog napról napra. A szín tehát nem az egyetlen kódolás: a
+   kijelölés-sáv mindig megnevezi, mit néztél ki. */
+.row__seg.is-marked {
+  box-shadow: inset 0 0 0 2px var(--text);
+  z-index: 1;
 }
-.legend span { display: flex; align-items: center; gap: 6px; }
-.legend i { width: 9px; height: 9px; border-radius: 3px; }
+.row__seg.is-exact { box-shadow: inset 0 0 0 2px var(--text), 0 0 0 2px var(--text); }
+.row__track:has(.is-marked) .row__seg:not(.is-marked) { opacity: 0.45; }
+
+.selbar {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex: none;
+  min-height: 42px;
+  margin-top: 12px;
+  padding: 7px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: var(--surface);
+  font-size: 13px;
+}
+.selbar strong { font-weight: 600; }
+.selbar__times { color: var(--text-dim); font-variant-numeric: tabular-nums; }
+.selbar b { margin-left: auto; font-variant-numeric: tabular-nums; }
+.selbar__hint { color: var(--text-dim); }
+.selbar .chipicon { width: 26px; height: 26px; border-radius: 8px; }
 
 /* --- Tevékenységek ------------------------------------------------------ */
 

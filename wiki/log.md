@@ -7,6 +7,9 @@ merge drivert működőképessé és a fájlt grep-elhetővé:
 
 ## 2026-07-27
 
+* **Változás**: A Napok nézetben egy sávra koppintva **minden nap azonos kategóriájú szegmense keretet kap**, a többi elhalványul; az alsó sáv a kijelölt kategóriát és annak kezdetét/végét/hosszát mutatja az adott napon. A mindent felsoroló jelmagyarázat kikerült.
+* **Kivezetés**: A kézi, drag-and-drop sorrendezés kikerült a felületről — a használati pontszám váltotta ki. A `sort` mező már csak a soha nem használt típusoknál dönt.
+
 * **Megfordított döntés**: A gyorsrögzítő gombok **használat szerint** rendeződnek (gyakoriság + frissesség egyetlen, 7 napos felezésű pontszámban), azonnali újraszámolással. A korábbi „fix sorrend az izommemóriáért" indoklást a felhasználó felülbírálta. A Beállítások fülön kikapcsolható.
 * **Létrehozás**: A napi sáv üres részére koppintva új esemény hozható létre az adott időpontban, mint a naptáralkalmazásokban.
 * **Hibajavítás**: A csippentés azért akadozott, mert minden gesztus-frame teljes React-újrarenderelést váltott ki (~45 pozicionált elem). A skála mostantól CSS-változó (`--pxh`), a gesztus alatt egyetlen stílusírás történik, az állapot csak a végén szinkronizálódik.

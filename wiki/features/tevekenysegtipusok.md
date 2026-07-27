@@ -94,6 +94,10 @@ hivatkozó **régi markerek árván maradnának**, és a múltbeli napok olvasha
 törölt típus eltűnik a gyorsrögzítő gombok közül, de a régi szegmensek továbbra is helyesen
 jelennek meg.
 
-A `sort` mező a gombok sorrendjét adja, és **csak kézzel változik** — a
-[gyorsrögzítés](/features/gyorsrogzites.md) indoklása szerint az izommemória fontosabb, mint az
-optimalizált sorrend.
+A `sort` mező már **nem a gombok sorrendjét adja**: azt a
+[használati pontszám](/features/gyorsrogzites.md#sorrend-használat-szerint) határozza meg,
+azonnali újraszámolással. A `sort` csak azoknál dönt, amiket még soha nem használtunk — hogy egy
+új típus se essen véletlenszerű helyre.
+
+A kézi, húzással állítható sorrendezés ezzel értelmét vesztette, ezért **kikerült a felületről**.
+A szerver `POST /api/activities/reorder` végpontja megmaradt, de a kliens nem hívja.

@@ -46,11 +46,15 @@ bukott meg az „ébredéshez igazított, dinamikus napkezdet" ötlete a
 **2. A tengely 04:00-tól 04:00-ig tart.** Így az éjszakai alvás egyetlen összefüggő blokk a sor
 jobb szélén, nem két csonk a két végén.
 
-**3. A szín az egyetlen kódolás, ezért nem elég.** Színvakság mellett (deuteranopia ~8% a férfiak
-körében) a zöld/olíva pár összecsúszik. Ezért:
-- koppintásra/hosszú nyomásra jelenjen meg a szegmens neve és időtartama,
-- a jelmagyarázat mindig látszódjon,
-- a leggyakoribb típusok kapjanak **eltérő világosságot** is, ne csak eltérő színárnyalatot.
+**3. A szín nem lehet az egyetlen kódolás.** Színvakság mellett (deuteranopia ~8% a férfiak
+körében) a zöld/olíva pár összecsúszik. A megoldás nem a mindent felsoroló jelmagyarázat volt —
+az sok helyet vitt el, és épp a lényeget nem mondta meg —, hanem a **kijelölés**:
+
+- Egy sávra koppintva **minden nap azonos kategóriájú szegmense keretet kap**, a többi
+  elhalványul. Így a minta (mikor kezdődik az alvás, hogy csúszik) ránézésre leolvasható.
+- Az alsó sáv megnevezi a kijelölt kategóriát, és megmutatja a megkoppintott szegmens
+  **kezdetét, végét és hosszát** az adott napon belül.
+- A képernyőre koppintva a kijelölés megszűnik.
 
 A konkrét palettát és a kontrasztkövetelményeket a
 [tevékenységtípusok](/features/tevekenysegtipusok.md) oldal tartja.

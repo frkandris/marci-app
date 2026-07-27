@@ -11,7 +11,6 @@ const INITIAL_DAYS = 45;
 const POLL_MS = 30_000;
 
 const TOKEN_KEY = 'marci-token';
-const RANK_KEY = 'marci-rank-by-usage';
 let token = localStorage.getItem(TOKEN_KEY) ?? '';
 
 export interface State {
@@ -25,8 +24,6 @@ export interface State {
   error: string | null;
   /** A service worker új verziót töltött le, és vár a beélesítésre. */
   updateReady: boolean;
-  /** A gyorsrögzítő gombok használat szerint rendeződjenek-e. */
-  rankByUsage: boolean;
 }
 
 let state: State = {
@@ -38,7 +35,6 @@ let state: State = {
   loading: false,
   error: null,
   updateReady: false,
-  rankByUsage: localStorage.getItem(RANK_KEY) !== '0',
 };
 
 const listeners = new Set<() => void>();
@@ -244,11 +240,6 @@ export function setToken(t: string) {
   localStorage.setItem(TOKEN_KEY, token);
   set({ needsToken: false, error: null });
   void refresh();
-}
-
-export function setRankByUsage(on: boolean) {
-  localStorage.setItem(RANK_KEY, on ? '1' : '0');
-  set({ rankByUsage: on });
 }
 
 // --- verziófrissítés ------------------------------------------------------

@@ -8,16 +8,23 @@ import {
   fmtDay,
   fmtDuration,
   fmtTime,
-  liveActivities,
   segmentsFor,
   shiftDayKey,
 } from '../model';
+import { Icon } from '../icons';
+
+interface Selection {
+  activityId: string;
+  /** A KONKRÉTAN megkoppintott szegmens — ennek az idejét mutatjuk. */
+  start: number;
+  end: number;
+  dayKey: string;
+}
 
 export function Overview({ onOpenDay }: { onOpenDay: (key: string) => void }) {
   const { markers, activities, daysLoaded, loading } = useStore();
-  const [peek, setPeek] = useState<{ label: string; text: string } | null>(null);
+  const [sel, setSel] = useState<Selection | null>(null);
 
-  const live = liveActivities(activities);
   // A byId a TELJES listából épül, hogy az archivált típusok régi szegmensei
   // is nevet és színt kapjanak.
   const byId = useMemo(() => new Map(activities.map((a) => [a.id, a])), [activities]);
@@ -28,8 +35,10 @@ export function Overview({ onOpenDay }: { onOpenDay: (key: string) => void }) {
     return Array.from({ length: daysLoaded }, (_, i) => shiftDayKey(today, -i));
   }, [daysLoaded, now]);
 
+  const selAct = sel ? byId.get(sel.activityId) : null;
+
   return (
-    <div className="overview">
+    <div className="overview" onClick={() => setSel(null)}>
       <div className="overview__axis">
         {[4, 8, 12, 16, 20, 0, 4].map((h, i) => (
           <span key={i}>{String(h).padStart(2, '0')}</span>
@@ -42,16 +51,26 @@ export function Overview({ onOpenDay }: { onOpenDay: (key: string) => void }) {
           const segs = segmentsFor(markers, from, to, now);
           return (
             <div className="row" key={key}>
-              <button className="row__label" onClick={() => onOpenDay(key)}>
+              <button
+                className="row__label"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onOpenDay(key);
+                }}
+              >
                 {fmtDay(key)}
               </button>
               <div className="row__track">
                 {segs.map((s) => {
                   const a = byId.get(s.activityId);
+                  // Kijelöléskor MINDEN nap azonos kategóriájú szegmense keretet
+                  // kap — így ránézésre látszik, hogyan mozog napról napra.
+                  const marked = sel?.activityId === s.activityId;
+                  const exact = marked && sel!.start === s.start;
                   return (
                     <button
                       key={s.markerId}
-                      className="row__seg"
+                      className={`row__seg${marked ? ' is-marked' : ''}${exact ? ' is-exact' : ''}`}
                       style={{
                         left: `${((s.start - from) / (to - from)) * 100}%`,
                         // Minimális szélesség: enélkül egy azonnal javított,
@@ -62,10 +81,7 @@ export function Overview({ onOpenDay }: { onOpenDay: (key: string) => void }) {
                       aria-label={`${a?.label ?? s.activityId}, ${fmtTime(s.start)}–${fmtTime(s.end)}`}
                       onClick={(e) => {
                         e.stopPropagation();
-                        setPeek({
-                          label: a?.label ?? s.activityId,
-                          text: `${fmtTime(s.start)}–${fmtTime(s.end)} · ${fmtDuration(s.end - s.start)}`,
-                        });
+                        setSel({ activityId: s.activityId, start: s.start, end: s.end, dayKey: key });
                       }}
                     />
                   );
@@ -75,25 +91,36 @@ export function Overview({ onOpenDay }: { onOpenDay: (key: string) => void }) {
           );
         })}
 
-        <button className="more" onClick={() => void loadMoreDays()} disabled={loading}>
+        <button
+          className="more"
+          onClick={(e) => {
+            e.stopPropagation();
+            void loadMoreDays();
+          }}
+          disabled={loading}
+        >
           {loading ? 'Betöltés…' : 'Korábbi napok'}
         </button>
       </div>
 
-      <div className="legend">
-        {live.map((a) => (
-          <span key={a.id}>
-            <i style={{ background: a.color }} />
-            {a.label}
-          </span>
-        ))}
+      {/* A mindent felsoroló jelmagyarázat helyett csak az számít, amit épp
+          kijelöltél — és annak a kezdete/vége az adott napon belül. */}
+      <div className="selbar">
+        {sel && selAct ? (
+          <>
+            <span className="chipicon" style={{ background: selAct.color }}>
+              <Icon name={selAct.icon} size={15} />
+            </span>
+            <strong>{selAct.label}</strong>
+            <span className="selbar__times">
+              {fmtDay(sel.dayKey)} · {fmtTime(sel.start)}–{fmtTime(sel.end)}
+            </span>
+            <b>{fmtDuration(sel.end - sel.start)}</b>
+          </>
+        ) : (
+          <span className="selbar__hint">Koppints egy sávra</span>
+        )}
       </div>
-
-      {peek && (
-        <div className="toast toast--peek" onClick={() => setPeek(null)}>
-          <strong>{peek.label}</strong> {peek.text}
-        </div>
-      )}
     </div>
   );
 }

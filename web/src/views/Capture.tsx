@@ -44,7 +44,7 @@ const STRIP_PX_PER_H = 44;
  * kétharmadban van. Megerősítő párbeszéd helyett visszavonás.
  */
 export function Capture({ onOpenDay }: { onOpenDay: (key: string) => void }) {
-  const { markers, activities, rankByUsage } = useStore();
+  const { markers, activities } = useStore();
   const [now, setNow] = useState(Date.now());
   const [undo, setUndo] = useState<{ id: string; label: string } | null>(null);
   const [draft, setDraft] = useState<{ label: string; icon: string; color: string } | null>(null);
@@ -80,7 +80,7 @@ export function Capture({ onOpenDay }: { onOpenDay: (key: string) => void }) {
   // tevékenység rögtön előrelép. A pontszám a gyakoriságot és a frissességet
   // együtt fejezi ki (7 napos felezés).
   const allLive = liveActivities(activities);
-  const live = rankByUsage ? rankedActivities(allLive, markers, now) : allLive;
+  const live = rankedActivities(allLive, markers, now);
   // A futó tevékenység a TELJES listából keresendő ki: ha közben archiválták,
   // a marker attól még fut, és meg kell nevezni. A `live` csak a gombokhoz kell.
   const today = dayKey(now, DAY_START_HOUR);
