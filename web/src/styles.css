@@ -126,7 +126,9 @@ button { cursor: pointer; }
   display: flex;
   flex-direction: column;
   min-height: 100%;
-  padding: 0 16px calc(env(safe-area-inset-bottom) + 10px);
+  /* Alul nincs biztonsági zóna: a fülsáv van alatta, és MOST MÁR az tartja
+     ki a home indicator csíkját — itt megismételve dupla hézag lenne. */
+  padding: 0 16px 10px;
 }
 
 .current { text-align: center; padding: 12px 0 10px; flex: none; }
@@ -730,7 +732,12 @@ button { cursor: pointer; }
    csak a bespoke elemeket illeszti hozzá. */
 
 .marci-root, .marci-root .app { background: var(--bg); }
-.marci-tabbar { position: relative !important; flex: none; }
+/* A Konsta safe-area változóit kikapcsoltuk (`safeAreas={false}`), mert a
+   saját elrendezés maga kezeli a zónákat. A Tabbar viszont a Konsta
+   `pb-safe-4`-jére támaszkodna, ami így NULLÁRA oldódik: iPhone-on a
+   feliratok és a találati sávok belelógnának a home indicator csíkjába.
+   Ezért itt kifejezetten kitesszük az alsó biztonsági zónát. */
+.marci-tabbar { position: relative !important; flex: none; padding-bottom: env(safe-area-inset-bottom); }
 /* A "Beállítások" hosszabb, mint a többi felirat — hagyjuk kiférni. */
 .marci-tabbar .k-link { padding-left: 6px; padding-right: 6px; }
 .marci-tabbar .k-link span:last-child { font-size: 10px; letter-spacing: -0.01em; }
