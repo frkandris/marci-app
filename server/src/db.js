@@ -25,71 +25,86 @@ export function openDb(path) {
   return db;
 }
 
+/**
+ * Egy migrációs lépés: a séma módosítása ÉS a verziószám írása EGY
+ * tranzakcióban. Enélkül egy megszakadt első indítás után a következő
+ * indítás újra lefuttatná a `CREATE TABLE`-t egy már létező táblán, és az
+ * adatbázis véglegesen megnyithatatlanná válna.
+ */
+function step(db, version, fn) {
+  db.exec('BEGIN IMMEDIATE');
+  try {
+    fn();
+    db.exec(`PRAGMA user_version = ${version}`);
+    db.exec('COMMIT');
+  } catch (err) {
+    db.exec('ROLLBACK');
+    throw err;
+  }
+}
+
 function migrate(db) {
   const current = Number(db.prepare('PRAGMA user_version').get().user_version);
   if (current >= SCHEMA_VERSION) return;
 
   if (current < 1) {
-    db.exec(`
-      CREATE TABLE markers (
-        id          TEXT    PRIMARY KEY,
-        at          INTEGER NOT NULL,
-        activity_id TEXT    NOT NULL,
-        note        TEXT
-      );
-      CREATE INDEX markers_at ON markers(at);
+    step(db, 1, () => {
+      db.exec(`
+        CREATE TABLE markers (
+          id          TEXT    PRIMARY KEY,
+          at          INTEGER NOT NULL,
+          activity_id TEXT    NOT NULL,
+          note        TEXT
+        );
+        CREATE INDEX markers_at ON markers(at);
 
-      CREATE TABLE activities (
-        id       TEXT    PRIMARY KEY,
-        label    TEXT    NOT NULL,
-        color    TEXT    NOT NULL,
-        icon     TEXT,
-        sort     INTEGER NOT NULL,
-        archived INTEGER NOT NULL DEFAULT 0
+        CREATE TABLE activities (
+          id       TEXT    PRIMARY KEY,
+          label    TEXT    NOT NULL,
+          color    TEXT    NOT NULL,
+          icon     TEXT,
+          sort     INTEGER NOT NULL,
+          archived INTEGER NOT NULL DEFAULT 0
+        );
+      `);
+      const ins = db.prepare(
+        'INSERT INTO activities(id,label,color,icon,sort,archived) VALUES(?,?,?,?,?,0)',
       );
-    `);
-    const ins = db.prepare(
-      'INSERT INTO activities(id,label,color,icon,sort,archived) VALUES(?,?,?,?,?,0)',
-    );
-    for (const a of DEFAULT_ACTIVITIES) ins.run(a.id, a.label, a.color, a.icon, a.sort);
+      for (const a of DEFAULT_ACTIVITIES) ins.run(a.id, a.label, a.color, a.icon, a.sort);
+    });
   }
 
   if (current < 2) {
-    // A 'bolcsi' -> 'ovi' átnevezés a markereket is átvezeti, különben árván
-    // maradnának. Egy tranzakcióban, és csak ha van mit átnevezni.
-    const hasOld = db.prepare("SELECT 1 FROM activities WHERE id = 'bolcsi'").get();
-    const hasNew = db.prepare("SELECT 1 FROM activities WHERE id = 'ovi'").get();
-    if (hasOld && !hasNew) {
-      db.exec('BEGIN IMMEDIATE');
-      try {
+    step(db, 2, () => {
+      // A 'bolcsi' -> 'ovi' átnevezés a markereket is átvezeti, különben árván
+      // maradnának.
+      const hasOld = db.prepare("SELECT 1 FROM activities WHERE id = 'bolcsi'").get();
+      const hasNew = db.prepare("SELECT 1 FROM activities WHERE id = 'ovi'").get();
+      if (hasOld && !hasNew) {
         db.exec("UPDATE markers SET activity_id = 'ovi' WHERE activity_id = 'bolcsi'");
         db.exec("UPDATE activities SET id = 'ovi', label = 'Ovi' WHERE id = 'bolcsi'");
-        db.exec('COMMIT');
-      } catch (err) {
-        db.exec('ROLLBACK');
-        throw err;
       }
-    }
+    });
   }
 
   if (current < 3) {
-    // Emoji ikonok -> saját ikonkészlet nevei. Az emoji platformonként más
-    // rajzú és méretű, ezért a felület sosem nézett ki egységesnek.
-    const BY_ID = {
-      alvas: 'moon', altatas: 'bed', etkezes: 'bowl', furdes: 'droplet',
-      jatek: 'blocks', program: 'shoe', ovi: 'backpack', bolcsi: 'backpack',
-    };
-    const VALID = new Set(Object.values(BY_ID).concat([
-      'bottle', 'sun', 'car', 'book', 'music', 'heart', 'health', 'star', 'stop',
-    ]));
-    const upd = db.prepare('UPDATE activities SET icon = ? WHERE id = ?');
-    for (const a of db.prepare('SELECT id, icon FROM activities').all()) {
-      if (a.icon && VALID.has(a.icon)) continue;
-      upd.run(BY_ID[a.id] ?? 'star', a.id);
-    }
+    step(db, 3, () => {
+      // Emoji ikonok -> saját ikonkészlet nevei.
+      const BY_ID = {
+        alvas: 'moon', altatas: 'bed', etkezes: 'bowl', furdes: 'droplet',
+        jatek: 'blocks', program: 'shoe', ovi: 'backpack', bolcsi: 'backpack',
+      };
+      const VALID = new Set(Object.values(BY_ID).concat([
+        'bottle', 'sun', 'car', 'book', 'music', 'heart', 'health', 'star', 'stop',
+        'person', 'people',
+      ]));
+      const upd = db.prepare('UPDATE activities SET icon = ? WHERE id = ?');
+      for (const a of db.prepare('SELECT id, icon FROM activities').all()) {
+        if (a.icon && VALID.has(a.icon)) continue;
+        upd.run(BY_ID[a.id] ?? 'star', a.id);
+      }
+    });
   }
-
-  db.exec(`PRAGMA user_version = ${SCHEMA_VERSION}`);
 }
 
 const toMarker = (r) => ({ id: r.id, at: r.at, activityId: r.activity_id, note: r.note ?? null });

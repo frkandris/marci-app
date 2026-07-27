@@ -142,7 +142,9 @@ export function Capture({ onOpenDay }: { onOpenDay: (key: string) => void }) {
       label: draft.label.trim(),
       icon: draft.icon,
       color: draft.color,
-      sort: (live.at(-1)?.sort ?? 0) + 10,
+      // A `live` HASZNÁLAT szerint van rendezve, nem `sort` szerint — ezért
+      // a legnagyobb kézi sort-ból számolunk, különben ütköző értéket kapna.
+      sort: Math.max(0, ...allLive.map((a) => a.sort)) + 10,
       archived: false,
     });
     // Sikertelen mentésnél NE dobjuk el a beírt adatokat — a hibasáv jelzi a

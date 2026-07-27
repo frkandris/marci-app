@@ -19,7 +19,11 @@ test('a healthcheck token nélkül is átmegy, bekapcsolt SHARED_TOKEN mellett i
   // hitelesített deploy egészségtelennek minősülne egy működő szerver mellett.
   const app = await load({ SHARED_TOKEN: 'titok' });
   const res = await app.fetch(new Request('http://x/api/health'));
-  assert.equal(res.status, 200, 'a /api/health SOHA nem kérhet tokent');
+  // NEM 200-at várunk: a /api/health szándékosan 503-at ad, ha a frontend
+  // build hiányzik (tiszta checkoutban ez a normális). A lényeg, hogy
+  // átengedte a hitelesítést — vagyis nem 401.
+  assert.notEqual(res.status, 401, 'a /api/health SOHA nem kérhet tokent');
+  assert.ok([200, 503].includes(res.status), `váratlan státusz: ${res.status}`);
 });
 
 test('bekapcsolt token mellett a többi végpont 401-et ad token nélkül', async () => {

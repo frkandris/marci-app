@@ -271,3 +271,24 @@ test('timeInLogicalDay a MEGJELENÍTETT naphoz horgonyoz, éjfélen át is', () 
     assert.ok(x >= f && x < t, `${hhmm} kiesett a napból`);
   }
 });
+
+test('a "Vége" határ törlése a markert dobja el, nem no-op', () => {
+  // Ez a Day.clearSegment ága: ha a marker MÁR __none__, a __none__-ra állítás
+  // nem csinálna semmit — a felhasználó ezt látta úgy, hogy "nem hat rá a
+  // törlés gomb". A helyes viselkedés a határ eldobása, amitől az előző
+  // tevékenység folytatódik.
+  const markers = [
+    mk('alvas', at(2026, 7, 27, 22, 45), 'alvas'),
+    mk('vege', at(2026, 7, 27, 22, 51), NONE),
+  ];
+  const [from, to] = dayBounds('2026-07-27');
+  const most = at(2026, 7, 27, 23, 12);
+
+  // A "Vége" előtt: az alvás 22:45-22:51.
+  const elotte = segmentsFor(markers, from, to, most);
+  assert.equal(elotte.at(-1)!.end, at(2026, 7, 27, 22, 51));
+
+  // A határ eldobása után az alvás a JELENIG tart.
+  const utana = segmentsFor(markers.filter((m) => m.id !== 'vege'), from, to, most);
+  assert.equal(utana.at(-1)!.end, most, 'a lezárás eldobásával a szegmens folytatódik');
+});

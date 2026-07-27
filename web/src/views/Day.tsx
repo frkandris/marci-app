@@ -216,14 +216,19 @@ export function Day({
     runningMarker(markers) === null;
 
   /**
-   * A szegmens „törlése" NEM a marker eldobása: az csak összevonná az előzővel,
-   * vagyis az előző tevékenységnek tulajdonítana olyan időt, ami nem az volt.
-   * Helyette a sáv NEM RÖGZÍTETT lesz. Ha az előző már úgyis lyuk, a markert
-   * eldobjuk, hogy ne halmozódjanak az üres határok.
+   * A szegmens „törlése" rendes tevékenységnél NEM a marker eldobása: az csak
+   * összevonná az előzővel, vagyis az előző tevékenységnek tulajdonítana olyan
+   * időt, ami nem az volt. Helyette a sáv NEM RÖGZÍTETT lesz.
+   *
+   * Két esetben viszont a markert magát dobjuk el:
+   *  - a marker MÁR `__none__` (egy „Vége" határ) — ilyenkor a `__none__`-ra
+   *    állítás no-op lenne, és a Törlés gomb látszólag nem csinálna semmit;
+   *  - az előző szegmens már úgyis lyuk — ne halmozódjanak az üres határok.
    */
   async function clearSegment(id: string) {
+    const self = markers.find((m) => m.id === id);
     const prev = previousOf(markers, id);
-    if (prev && prev.activityId === NONE) await deleteMarker(id);
+    if (self?.activityId === NONE || prev?.activityId === NONE) await deleteMarker(id);
     else await updateMarker(id, { activityId: NONE });
   }
 

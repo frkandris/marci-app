@@ -147,6 +147,10 @@ async function guard<T>(fn: () => Promise<T>): Promise<T | null> {
   } catch (e) {
     set({ error: `Nem sikerült menteni: ${(e as Error).message}` });
     return null;
+  } finally {
+    // A mutáció KÖZBEN indult lekérés a mutáció ELŐTTI állapotot olvasta, de
+    // frissebb generációt kapott — ezért a végén ÚJRA érvénytelenítünk.
+    refreshGen++;
   }
 }
 
@@ -220,6 +224,7 @@ export async function deleteActivityHard(id: string, cascade = false): Promise<n
   refreshGen++;
   const q = `?hard=1${cascade ? '&cascade=1' : ''}`;
   const res = await authFetch(`/activities/${encodeURIComponent(id)}${q}`, { method: 'DELETE' });
+  refreshGen++;
   if (res.status === 409) return (await res.json()).usage ?? 0;
   if (!res.ok) {
     set({ error: `Nem sikerült törölni (${res.status})` });
