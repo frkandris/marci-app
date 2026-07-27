@@ -86,9 +86,10 @@ export function Settings() {
   }
 
   async function tryDelete(a: Activity) {
-    const usage = await deleteActivityHard(a.id, false);
-    if (usage !== null) setConfirmDelete({ a, usage });
-    else setEditing(null);
+    const res = await deleteActivityHard(a.id, false);
+    if (res === 'deleted') setEditing(null);
+    else if (typeof res === 'number') setConfirmDelete({ a, usage: res });
+    // 'error' esetén nyitva marad, a hibasáv jelzi a bajt.
   }
 
   const chip = (a: Activity, size = 17) => (

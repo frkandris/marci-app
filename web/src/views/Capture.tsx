@@ -188,9 +188,9 @@ export function Capture({ onOpenDay }: { onOpenDay: (key: string) => void }) {
   }
 
   async function tryDelete(id: string) {
-    const usage = await deleteActivityHard(id, false);
-    if (usage !== null) setConfirmDelete({ id, usage });
-    else setDraft(null);
+    const res = await deleteActivityHard(id, false);
+    if (res === 'deleted') setDraft(null);
+    else if (typeof res === 'number') setConfirmDelete({ id, usage: res });
   }
 
   return (

@@ -86,22 +86,33 @@ function window_(days = state.daysLoaded): [number, number] {
  * vagy eltüntethetne egy épp mentett markert.
  */
 let refreshGen = 0;
+/** Volt-e olyan lekérés, amit egy mutáció eldobott? Akkor pótolni kell. */
+let refreshDiscarded = false;
 
 export async function refresh(days = state.daysLoaded) {
   const gen = ++refreshGen;
-  set({ loading: true });
+  // A kért ablakot AZONNAL rögzítjük. Ha ezt a lekérést egy mutáció eldobja,
+  // a következő poll már a szélesebb ablakot kéri — különben egy régebbi nap
+  // tartósan hiányos maradna.
+  set({ loading: true, daysLoaded: Math.max(days, state.daysLoaded) });
   try {
     const [from, to] = window_(days);
     const [markers, activities] = await Promise.all([
       api<Marker[]>(`/markers?from=${from}&to=${to}`),
       api<Activity[]>('/activities'),
     ]);
-    if (gen !== refreshGen) return; // közben újabb lekérés indult — ez elavult
+    if (gen !== refreshGen) {
+      refreshDiscarded = true; // közben mutáció történt — a választ eldobjuk
+      return;
+    }
     set({ markers, activities, daysLoaded: days, error: null, ready: true });
   } catch (e) {
     // Mindig online az elvárás, de a hálózat akkor is elmehet — ilyenkor a
     // korábban betöltött adat a képernyőn marad, és jelezzük, hogy elavult.
-    if (gen !== refreshGen) return;
+    if (gen !== refreshGen) {
+      refreshDiscarded = true;
+      return;
+    }
     set({ error: `Nem érhető el a szerver (${(e as Error).message})` });
     set({ ready: true });
   } finally {
@@ -151,6 +162,12 @@ async function guard<T>(fn: () => Promise<T>): Promise<T | null> {
     // A mutáció KÖZBEN indult lekérés a mutáció ELŐTTI állapotot olvasta, de
     // frissebb generációt kapott — ezért a végén ÚJRA érvénytelenítünk.
     refreshGen++;
+    // Ha közben tényleg eldobtunk egy választ, pótoljuk — különben egy épp
+    // futó, szélesebb ablakos betöltés eredménye elveszne.
+    if (refreshDiscarded) {
+      refreshDiscarded = false;
+      void refresh();
+    }
   }
 }
 
@@ -215,20 +232,37 @@ export const unarchiveActivity = (a: Activity) => saveActivity({ ...a, archived:
 /**
  * Végleges törlés. `cascade` nélkül a szerver 409-cel elutasítja, ha markerek
  * hivatkoznak rá — így nem lehet véletlenül árva adatot csinálni.
- * Visszatérés: `null` ha sikerült, különben a használatok száma.
+ *
+ * Visszatérés:
+ *  - `'deleted'` — sikerült,
+ *  - szám — használatban van, ennyi eseménnyel (megerősítés kell),
+ *  - `'error'` — hálózati vagy szerverhiba; a hibasáv már jelzi.
+ *
+ * A háromállapotú válasz nem szépészet: korábban a hibák is 0-t adtak vissza,
+ * amit a hívó „0 használat"-nak olvasott, és a visszafordíthatatlan kaszkádolt
+ * törlést ajánlotta fel egy egyszerű hálózati hiba után.
  */
-export async function deleteActivityHard(id: string, cascade = false): Promise<number | null> {
+export type HardDeleteResult = 'deleted' | 'error' | number;
+
+export async function deleteActivityHard(id: string, cascade = false): Promise<HardDeleteResult> {
   // Ez a függvény nem a `guard`-on megy át, ezért itt kell érvénytelenítenünk
   // a folyamatban lévő lekéréseket — különben egy régi poll visszahozná a
   // törölt tevékenységet és a markereit.
   refreshGen++;
   const q = `?hard=1${cascade ? '&cascade=1' : ''}`;
-  const res = await authFetch(`/activities/${encodeURIComponent(id)}${q}`, { method: 'DELETE' });
+  let res: Response;
+  try {
+    res = await authFetch(`/activities/${encodeURIComponent(id)}${q}`, { method: 'DELETE' });
+  } catch (e) {
+    refreshGen++;
+    set({ error: `Nem sikerült törölni: ${(e as Error).message}` });
+    return 'error';
+  }
   refreshGen++;
-  if (res.status === 409) return (await res.json()).usage ?? 0;
+  if (res.status === 409) return (await res.json().catch(() => ({}))).usage ?? 0;
   if (!res.ok) {
     set({ error: `Nem sikerült törölni (${res.status})` });
-    return 0;
+    return 'error';
   }
   set({
     activities: state.activities.filter((a) => a.id !== id),
@@ -239,7 +273,7 @@ export async function deleteActivityHard(id: string, cascade = false): Promise<n
       : state.markers,
     error: null,
   });
-  return null;
+  return 'deleted';
 }
 
 export const reorderActivities = (ids: string[]) =>
@@ -274,7 +308,13 @@ export const applyUpdate = () => applyUpdateFn?.();
 
 // --- életciklus -----------------------------------------------------------
 
-export function init() {
+let initialized = false;
+
+/** StrictMode-ban kétszer fut le, HMR-nél újra — ezért idempotens. */
+export function init(): () => void {
+  if (initialized) return () => {};
+  initialized = true;
+
   void refresh();
 
   let timer: ReturnType<typeof setInterval> | null = null;
@@ -288,14 +328,24 @@ export function init() {
 
   // Háttérben nincs értelme kérdezgetni; előtérbe kerüléskor viszont azonnal
   // kell egy friss lekérés, mert a másik telefon közben írhatott.
-  document.addEventListener('visibilitychange', () => {
+  const onVisibility = () => {
     if (document.visibilityState === 'visible') {
       void refresh();
       start();
     } else {
       stop();
     }
-  });
-  window.addEventListener('online', () => void refresh());
+  };
+  const onOnline = () => void refresh();
+
+  document.addEventListener('visibilitychange', onVisibility);
+  window.addEventListener('online', onOnline);
   if (document.visibilityState === 'visible') start();
+
+  return () => {
+    stop();
+    document.removeEventListener('visibilitychange', onVisibility);
+    window.removeEventListener('online', onOnline);
+    initialized = false;
+  };
 }
