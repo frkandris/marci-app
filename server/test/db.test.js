@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { test } from 'node:test';
 import {
@@ -172,7 +174,7 @@ test('az atrendezes a kapott sorrendet allitja be', () => {
 
 test('a v2 migracio atnevezi a bolcsit ovira, a markereivel egyutt', () => {
   // Régi sémájú adatbázis szimulálása, majd újranyitás -> migráció fut.
-  const path = `/tmp/marci-mig-${Math.random().toString(36).slice(2)}.db`;
+  const path = join(tmpdir(), `marci-mig-${Math.random().toString(36).slice(2)}.db`);
   const old = new DatabaseSync(path);
   old.exec(`
     CREATE TABLE markers (id TEXT PRIMARY KEY, at INTEGER NOT NULL, activity_id TEXT NOT NULL, note TEXT);
@@ -191,7 +193,7 @@ test('a v2 migracio atnevezi a bolcsit ovira, a markereivel egyutt', () => {
 });
 
 test('a v3 migracio emoji ikonokat ikonnevekre cserel', () => {
-  const path = `/tmp/marci-mig3-${Math.random().toString(36).slice(2)}.db`;
+  const path = join(tmpdir(), `marci-mig3-${Math.random().toString(36).slice(2)}.db`);
   const old = new DatabaseSync(path);
   old.exec(`
     CREATE TABLE markers (id TEXT PRIMARY KEY, at INTEGER NOT NULL, activity_id TEXT NOT NULL, note TEXT);
@@ -220,7 +222,7 @@ test('az upsert visszaadja a usageCount-ot is', () => {
 });
 
 test('a v2 migracio akkor is atvezet, ha az "ovi" MAR letezik', () => {
-  const path = `/tmp/marci-mig2b-${Math.random().toString(36).slice(2)}.db`;
+  const path = join(tmpdir(), `marci-mig2b-${Math.random().toString(36).slice(2)}.db`);
   const old = new DatabaseSync(path);
   old.exec(`
     CREATE TABLE markers (id TEXT PRIMARY KEY, at INTEGER NOT NULL, activity_id TEXT NOT NULL, note TEXT);

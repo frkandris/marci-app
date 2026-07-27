@@ -53,8 +53,8 @@ export function Day({
 
   const [from, to] = dayBounds(key, DAY_START_HOUR);
   const now = Date.now();
-  // A byId a TELJES listából épül (az archiváltakkal együtt), különben a régi
-  // napok archivált típusú szegmensei név és szín nélkül maradnának.
+  // A byId a TELJES listából épül (az archiváltakkal együtt), különben egy
+  // archivált típus régi szegmensei név és szín nélkül maradnának.
   const live = liveActivities(activities);
   const byId = useMemo(() => new Map(activities.map((a) => [a.id, a])), [activities]);
 

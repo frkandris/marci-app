@@ -116,9 +116,11 @@ felcserélésük volt a legvalószínűbb hibaforrás. Az
 [online-only döntés](/decisions/2026-07-27-online-only.md) szüntette meg ezt az egész
 osztályt.)
 
-**Az `archived` viszont megmaradt**, és nem a szinkron miatt: ha egy tevékenységtípust fizikailag
-törölnénk, a rá hivatkozó **régi markerek árván maradnának**, és a múltbeli napok
-olvashatatlanná válnának.
+**Az `archived` oszlop megmaradt, de a felület nem használja.** Eredetileg az árván maradó
+markerektől védett; ezt a szerepét azóta átvette a cascade-törlés, ami a régi markereket
+`__none__`-ra állítja ahelyett, hogy eldobná őket — így a múltbeli napok szerkezete megmarad,
+csak a megnevezés tűnik el. A felületen [egyetlen Törlés gomb](/features/kategoriakezeles.md) van,
+archiválás nincs; a soft delete kizárólag API-ból érhető el, szándékos vészkijáratként.
 
 # REST API
 
@@ -132,7 +134,7 @@ olvashatatlanná válnának.
 | `GET /api/activities` | Az összes típus, az archiváltakkal együtt |
 | `PUT /api/activities/:id` | **Meglévő** módosítása (404, ha nincs) |
 | `POST /api/activities` | Létrehozás — **az azonosítót a szerver osztja** |
-| `DELETE /api/activities/:id` | Archiválás. `?hard=1` végleges törlés, `&cascade=1` a használatban lévőnél is |
+| `DELETE /api/activities/:id` | `?hard=1` végleges törlés, `&cascade=1` a használatban lévőnél is. **A felület mindig ezt hívja.** `hard` nélkül archiválás — csak API-szintű vészkijárat |
 
 Az ismeretlen `/api/*` útvonal **JSON 404-et** ad, nem esik át az SPA-fallbackre — különben
 `index.html` jönne 200-zal, ami a kliensen JSON-parse hibaként jelentkezne.

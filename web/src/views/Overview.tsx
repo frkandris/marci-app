@@ -27,8 +27,9 @@ export function Overview({ onOpenDay }: { onOpenDay: (key: string) => void }) {
   const { markers, activities, daysLoaded, loading } = useStore();
   const [sel, setSel] = useState<Selection | null>(null);
 
-  // A byId a TELJES listából épül, hogy az archivált típusok régi szegmensei
-  // is nevet és színt kapjanak.
+  // A byId a TELJES listából épül (a `visibleActivities` szűrése nélkül), hogy
+  // a régi napok szegmensei nevet és színt kapjanak akkor is, ha a típust
+  // közben archiválták.
   const byId = useMemo(() => new Map(activities.map((a) => [a.id, a])), [activities]);
   const now = Date.now();
 
