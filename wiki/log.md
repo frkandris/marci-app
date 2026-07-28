@@ -7,6 +7,16 @@ merge drivert működőképessé és a fájlt grep-elhetővé:
 
 ## 2026-07-28
 
+* **Éjszakai review-sorozat, 2. szakasz**: további 14 kör codex review, **11 valódi hiba javítva**, majd két egymást követő tiszta kör. A legsúlyosabbak: a húzás utáni **visszavonás soha nem jelent meg** (az `upsertLocal` nem adott vissza semmit, így a sikeres mentés is bukásnak látszott); a **sorrend-invariánst csak a kliens őrizte**, két telefonról keresztbe húzva némán felcserélődhetett két tevékenység; egy **elavult 401** a sikeres belépés után visszarántotta a jelszókaput, ahonnan nem volt kiút; ugyanarra a markerre **két PATCH versenyzett**, és a szerveren maradhatott az, amit a felhasználó már elvetett.
+
+* **Végpont**: [`GET /api/state`](architecture.md) — a markerek és a típusok EGY olvasási tranzakcióból. Két külön lekérés közé beeshetett a másik telefon módosítása, és a szegmens név nélkül maradt. Mellékhaszon: fele annyi kérés a telefonnak a 30 másodpercenkénti lekérdezésnél.
+
+* **Invariáns**: a szerver mostantól elutasítja a **jövőbeli** (5 perc óraeltérés-tűréssel), az **azonos ezredmásodpercre eső**, és a **szomszédait keresztező** markert. Eddig ezeket csak a felület tiltotta — két telefonnál ez kevés.
+
+* **Óraátállítás**: az őszi ismétlődő óra két helyen is hibázott — a Napok nézetben **negatív szélességet** adott (a szegmens eltűnt), a Nap nézetben pedig a MÁSODIK 02:30 átírása visszaugrott az elsőre. Mindkettő javítva, tesztekkel.
+
+* **Lezárva**: a visszatérően jelzett „archiválás elérhetetlen" nem kódhiba volt, hanem elavult leírás. A felület szándékosan mindig véglegesen töröl; az `archived` soft delete API-szintű vészkijáratként marad. A [architecture.md](architecture.md) ezt már így írja.
+
 * **Hibajavítás**: A futtató image nem tartalmazta az `sqlite3` CLI-t, így a [mentési runbook](runbooks/mentes-visszaallitas.md) minden parancsa élesben elszállt volna („executable file not found"). Hozzáadva (`apk add sqlite`), és a `.backup` lokális Dockerben leellenőrizve.
 
 * **Éjszakai review-sorozat**: 7 kör codex review, 16 valódi hiba javítva. A legsúlyosabbak: nem atomi kezdeti migráció (megszakadás esetén véglegesen megnyithatatlan adatbázis), átéjszakázó szegmens vég-szerkesztése (~1 ms-ra omlasztotta volna), kaszkádolt törlés, ami az előző tevékenységnek tulajdonította a sávot, és a létrehozás-verseny két telefon között.

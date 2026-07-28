@@ -119,7 +119,7 @@ osztályt.)
 **Az `archived` oszlop megmaradt, de a felület nem használja.** Eredetileg az árván maradó
 markerektől védett; ezt a szerepét azóta átvette a cascade-törlés, ami a régi markereket
 `__none__`-ra állítja ahelyett, hogy eldobná őket — így a múltbeli napok szerkezete megmarad,
-csak a megnevezés tűnik el. A felületen [egyetlen Törlés gomb](/features/kategoriakezeles.md) van,
+csak a megnevezés tűnik el. A felületen [egyetlen Törlés gomb](/features/tevekenysegtipusok.md) van,
 archiválás nincs; a soft delete kizárólag API-ból érhető el, szándékos vészkijáratként.
 
 # REST API
